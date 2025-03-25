@@ -1,0 +1,297 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../supabaseClient'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer
+} from 'recharts'
+
+const playerColors = {
+  Janosch: '#3B82F6',   // blau
+  Hubertus: '#10B981', // grün
+  Casjen: '#EF4444',   // rot
+  Alex: '#F97316'      // orange
+}
+
+export default function Dashboard() {
+  const [results, setResults] = useState([])
+  const [players, setPlayers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [leaderMode, setLeaderMode] = useState('mostUsed')
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  async function fetchData() {
+    const { data, error } = await supabase
+      .from('results')
+      .select(`
+        id,
+        match_id,
+        score,
+        spice,
+        solari,
+        water,
+        leader_id,
+        players (id, name),
+        leaders (id, name),
+        matches (id, date, played_rounds)
+      `)
+
+    if (error) {
+      console.error('Fehler beim Laden:', error)
+      return
+    }
+
+    setResults(data)
+
+    const uniquePlayers = [
+      ...new Map(data.map(r => [r.players.id, r.players])).values()
+    ]
+    setPlayers(uniquePlayers)
+    setLoading(false)
+  }
+
+  if (loading) return <div className="p-4">Lade Dashboard...</div>
+
+  function getWinner(matchResults) {
+    return [...matchResults].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      if (b.spice !== a.spice) return b.spice - a.spice
+      if (b.solari !== a.solari) return b.solari - a.solari
+      return b.water - a.water
+    })[0]
+  }
+
+  const uniqueMatchIds = [...new Set(results.map(r => r.match_id))]
+
+  const playerStats = players.map(player => {
+    const playerResults = results.filter(r => r.players.id === player.id)
+    const totalGames = playerResults.length
+
+    const wins = uniqueMatchIds.reduce((acc, matchId) => {
+      const matchResults = results.filter(r => r.match_id === matchId)
+      const winner = getWinner(matchResults)
+      return winner.players.id === player.id ? acc + 1 : acc
+    }, 0)
+
+    const avgScore = totalGames
+      ? (playerResults.reduce((sum, r) => sum + r.score, 0) / totalGames).toFixed(1)
+      : '0.0'
+
+    const winrate = totalGames ? ((wins / totalGames) * 100).toFixed(1) : '0.0'
+
+    return {
+      id: player.id,
+      player: player.name,
+      totalGames,
+      wins,
+      winrate: parseFloat(winrate),
+      avgScore: parseFloat(avgScore)
+    }
+  })
+
+  const sortedDates = [...new Set(results.map(r => r.matches.date))].sort()
+  const winrateOverTime = sortedDates.map(date => {
+    const dateResults = results.filter(r => r.matches.date <= date)
+    const matchIdsToDate = [...new Set(dateResults.map(r => r.match_id))]
+
+    const dataPoint = { date: new Date(date).toLocaleDateString() }
+
+    players.forEach(player => {
+      const playerResults = dateResults.filter(r => r.players.id === player.id)
+      const totalGames = playerResults.length
+
+      const wins = matchIdsToDate.reduce((acc, matchId) => {
+        const matchResults = dateResults.filter(r => r.match_id === matchId)
+        const winner = getWinner(matchResults)
+        return winner.players.id === player.id ? acc + 1 : acc
+      }, 0)
+
+      const winrate = totalGames ? ((wins / totalGames) * 100).toFixed(1) : '0.0'
+      dataPoint[player.name] = parseFloat(winrate)
+    })
+
+    return dataPoint
+  })
+
+  const avgScoreOverTime = sortedDates.map(date => {
+    const dateResults = results.filter(r => r.matches.date <= date)
+    const dataPoint = { date: new Date(date).toLocaleDateString() }
+
+    players.forEach(player => {
+      const playerResults = dateResults.filter(r => r.players.id === player.id)
+      const totalGames = playerResults.length
+      const avg = totalGames
+        ? (playerResults.reduce((sum, r) => sum + r.score, 0) / totalGames).toFixed(1)
+        : 0
+      dataPoint[player.name] = parseFloat(avg)
+    })
+
+    return dataPoint
+  })
+
+  const leaderStats = players.map(player => {
+    const playerResults = results.filter(r => r.players.id === player.id && r.leaders?.name)
+    const leaderMap = {}
+
+    playerResults.forEach(r => {
+      const name = r.leaders.name
+      if (!leaderMap[name]) {
+        leaderMap[name] = { count: 0, totalScore: 0 }
+      }
+      leaderMap[name].count += 1
+      leaderMap[name].totalScore += r.score
+    })
+
+    const leadersArray = Object.entries(leaderMap).map(([name, data]) => ({
+      name,
+      count: data.count,
+      avgScore: (data.totalScore / data.count).toFixed(1)
+    }))
+
+    const sorted = leaderMode === 'mostUsed'
+      ? leadersArray.sort((a, b) => b.count - a.count)
+      : leadersArray.sort((a, b) => b.avgScore - a.avgScore)
+
+    return {
+      player: player.name,
+      topLeaders: sorted.slice(0, 5)
+    }
+  })
+
+  const matchGroups = results.reduce((acc, r) => {
+    if (!acc[r.match_id]) acc[r.match_id] = []
+    acc[r.match_id].push(r)
+    return acc
+  }, {})
+
+  const matchesWithRounds = Object.values(matchGroups).filter(m => m[0].matches.played_rounds !== null)
+
+  const matches3 = matchesWithRounds.filter(m => m.length === 3)
+  const matches4 = matchesWithRounds.filter(m => m.length === 4)
+
+  const avgRounds3 = matches3.length
+    ? (matches3.reduce((sum, match) => sum + (match[0].matches.played_rounds ?? 0), 0) / matches3.length).toFixed(1)
+    : '–'
+
+  const avgRounds4 = matches4.length
+    ? (matches4.reduce((sum, match) => sum + (match[0].matches.played_rounds ?? 0), 0) / matches4.length).toFixed(1)
+    : '–'
+
+  return (
+    <div className="p-4 max-w-5xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>
+
+      <div className="mb-6 border border-gray-300 rounded p-4 bg-gray-800">
+        <h2 className="text-xl font-semibold mb-2">⏱ Durchschnittliche Rundenanzahl</h2>
+        <p><strong>Bei 3 Spielern:</strong> {avgRounds3}</p>
+        <p><strong>Bei 4 Spielern:</strong> {avgRounds4}</p>
+      </div>
+
+      <h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
+      <table className="w-full border border-collapse mb-8">
+        <thead>
+          <tr className="bg-gray-800">
+            <th className="border p-2 text-left">Spieler</th>
+            <th className="border p-2">Partien</th>
+            <th className="border p-2">Siege</th>
+            <th className="border p-2">Ø Punkte</th>
+            <th className="border p-2">Winrate (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {playerStats.map(stat => (
+            <tr key={stat.player}>
+              <td className="border p-2">{stat.player}</td>
+              <td className="border p-2 text-center">{stat.totalGames}</td>
+              <td className="border p-2 text-center">{stat.wins}</td>
+              <td className="border p-2 text-center">{stat.avgScore}</td>
+              <td className="border p-2 text-center">{stat.winrate}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h2 className="text-xl font-semibold mb-2">Winrate-Verlauf</h2>
+      <ResponsiveContainer width="100%" height={400}>
+        <LineChart data={winrateOverTime}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis domain={[0, 100]} tickFormatter={(tick) => `${tick}%`} />
+          <Tooltip formatter={(value) => `${value}%`} />
+          <Legend />
+          {players.map(player => (
+            <Line
+              key={player.id}
+              type="monotone"
+              dataKey={player.name}
+              stroke={playerColors[player.name] || '#000'}
+              strokeWidth={2}
+              dot={false}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+
+      <h2 className="text-xl font-semibold mt-10 mb-2">⏳ Punkteentwicklung im Verlauf</h2>
+      <ResponsiveContainer width="100%" height={400}>
+        <LineChart data={avgScoreOverTime}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          {players.map(player => (
+            <Line
+              key={player.id + '-score'}
+              type="monotone"
+              dataKey={player.name}
+              stroke={playerColors[player.name] || '#000'}
+              strokeWidth={2}
+              dot={false}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+
+      <div className="flex items-center justify-between mt-10 mb-2">
+        <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
+        <button
+          onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
+          className="bg-gray-50 px-3 py-1 rounded"
+        >
+          {leaderMode === 'mostUsed' ? 'Zeige erfolgreichste Leader' : 'Zeige meistgespielte Leader'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {leaderStats.map(stat => (
+          <div key={stat.player} className="border p-4 rounded shadow">
+            <h3 className="font-semibold mb-2">{stat.player}</h3>
+            <table className="w-full border border-collapse">
+              <thead>
+                <tr className="bg-gray-800">
+                  <th className="border p-2 text-left">Leader</th>
+                  <th className="border p-2 text-center">
+                    {leaderMode === 'mostUsed' ? 'Spiele' : 'Ø Punkte'}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {stat.topLeaders.map(leader => (
+                  <tr key={leader.name}>
+                    <td className="border p-2">{leader.name}</td>
+                    <td className="border p-2 text-center">
+                      {leaderMode === 'mostUsed' ? `${leader.count}` : `${leader.avgScore}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
