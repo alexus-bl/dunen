@@ -13,10 +13,12 @@ function App() {
   const [count, setCount] = useState(0)
   return (
     <BrowserRouter>
-      <nav className="p-4 bg-gray-100 flex gap-4">
-        <Link to="/">Dashboard</Link>
-        <Link to="/add-match">Neue Partie</Link>
-        <Link to="/matches">Partien</Link>
+      <nav className="p-4 bg-gray-100">
+        <div className="max-w-screen-lg mx-auto flex flex-wrap gap-2 sm:gap-4">
+          <Link to="/" className="text-blue-600 hover:underline">Dashboard</Link>
+          <Link to="/add-match" className="text-blue-600 hover:underline">Neue Partie</Link>
+          <Link to="/matches" className="text-blue-600 hover:underline">Partien</Link>
+        </div> 
       </nav>
 
       <Routes>

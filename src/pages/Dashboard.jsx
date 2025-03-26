@@ -258,7 +258,7 @@ return (
               type="monotone"
               dataKey={player.name}
               stroke={playerColors[player.name] || '#000'}
-              strokeWidth={3}
+              strokeWidth={2}
               dot={false}
             />
           ))}
