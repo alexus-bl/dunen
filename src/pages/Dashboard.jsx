@@ -243,6 +243,53 @@ export default function Dashboard() {
         </table>
       </div>
 */}
+
+<h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
+
+{/* Desktop-Tabelle: nur auf md und größer sichtbar */}
+<div className="overflow-x-auto mb-8 hidden md:block">
+  <table className="min-w-full border border-collapse">
+    <thead>
+      <tr className="bg-gray-800">
+        <th className="border p-2 text-left">Spieler</th>
+        <th className="border p-2">Partien</th>
+        <th className="border p-2">Siege</th>
+        <th className="border p-2">Ø Punkte</th>
+        <th className="border p-2">Winrate (%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {playerStats.map(stat => (
+        <tr key={stat.player}>
+          <td className="border p-2 break-words whitespace-normal">{stat.player}</td>
+          <td className="border p-2 text-center">{stat.totalGames}</td>
+          <td className="border p-2 text-center">{stat.wins}</td>
+          <td className="border p-2 text-center">{stat.avgScore}</td>
+          <td className="border p-2 text-center">{stat.winrate}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+
+{/* Mobile-Version: als Cards */}
+<div className="space-y-4 md:hidden">
+  {playerStats.map(stat => (
+    <div
+      key={stat.player}
+      className="border rounded-lg p-4 shadow-sm bg-gray-800"
+    >
+      <div className="font-semibold text-lg mb-2">{stat.player}</div>
+      <div className="text-sm space-y-1">
+        <div><strong>Partien:</strong> {stat.totalGames}</div>
+        <div><strong>Siege:</strong> {stat.wins}</div>
+        <div><strong>Ø Punkte:</strong> {stat.avgScore}</div>
+        <div><strong>Winrate:</strong> {stat.winrate} %</div>
+      </div>
+    </div>
+  ))}
+</div>
+
       <h2 className="text-xl font-semibold mb-2">Winrate-Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={winrateOverTime}>
