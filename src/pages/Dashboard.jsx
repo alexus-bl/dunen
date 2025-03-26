@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { Shuffle, Star } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -208,8 +209,8 @@ export default function Dashboard() {
   })
 
   return (
-    <div className="container mx-auto px-4">
-      <h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>
+    <div className="container mx-auto px-4"><br />
+     {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
 
       <div className="mb-6 border border-gray-300 rounded p-4 bg-gray-800">
         <h2 className="text-xl font-semibold mb-2">⏱ Durchschnittliche Rundenanzahl</h2>
@@ -289,6 +290,7 @@ export default function Dashboard() {
     </div>
   ))}
 </div>
+<br />
 
       <h2 className="text-xl font-semibold mb-2">Winrate-Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
@@ -390,6 +392,58 @@ export default function Dashboard() {
           </div>
         ))}
       </div>*/}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-10 mb-2 gap-2">
+        <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
+        <button
+          onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
+          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
+        >
+          {leaderMode === 'mostUsed' ? (
+            <>
+              <Star className="w-4 h-4" />
+              Zeige beste Leader nach Punkten
+            </>
+          ) : (
+            <>
+              <Shuffle className="w-4 h-4" />
+              Zeige meistgespielte Leader
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {leaderStats.map(stat => (
+          <div
+            key={stat.player}
+            className="border p-4 rounded shadow bg-gray-800 max-h-80 overflow-y-auto"
+          >
+            <h3 className="font-semibold mb-2 text-base md:text-lg">{stat.player}</h3>
+            <table className="w-full table-fixed border border-collapse text-sm md:text-base">
+              <thead>
+                <tr className="bg-gray-800 text-white">
+                  <th className="border p-2 text-left w-2/3">Leader</th>
+                  <th className="border p-2 text-center w-1/3">
+                    {leaderMode === 'mostUsed' ? 'Spiele' : 'Ø Punkte'}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {stat.topLeaders.map(leader => (
+                  <tr key={leader.name}>
+                    <td className="border p-2 break-words whitespace-normal">{leader.name}</td>
+                    <td className="border p-2 text-center">
+                      {leaderMode === 'mostUsed' ? `${leader.count}` : `${leader.avgScore}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+
+
     </div>
     
   )
