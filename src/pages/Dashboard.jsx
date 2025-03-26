@@ -216,7 +216,7 @@ export default function Dashboard() {
         <p><strong>Bei 3 Spielern:</strong> {avgRounds3}</p>
         <p><strong>Bei 4 Spielern:</strong> {avgRounds4}</p>
       </div>
-
+{/*
       <h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
       <div className="overflow-x-auto mb-8">
         <table className="min-w-full border border-collapse">
@@ -242,7 +242,7 @@ export default function Dashboard() {
           </tbody>
         </table>
       </div>
-
+*/}
       <h2 className="text-xl font-semibold mb-2">Winrate-Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={winrateOverTime}>
@@ -305,7 +305,7 @@ export default function Dashboard() {
           ))}
         </LineChart>
       </ResponsiveContainer>
-
+{/*
       <div className="flex items-center justify-between mt-10 mb-2">
         <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
         <button
@@ -342,7 +342,8 @@ export default function Dashboard() {
             </table>
           </div>
         ))}
-      </div>
+      </div>*/}
     </div>
+    
   )
 }
