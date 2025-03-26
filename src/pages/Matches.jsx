@@ -85,16 +85,16 @@ export default function Matches() {
 
             {match.results.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="table-auto w-full border-collapse border mt-4 text-sm sm:text-base">
+                <table className="min-w-full table-auto border-collapse border text-sm sm:text-base">
                   <thead>
                     <tr className="bg-gray-800 text-white">
                       <th className="border p-2">Platz</th>
                       <th className="border p-2">Spieler</th>
                       <th className="border p-2">Anführer</th>
                       <th className="border p-2">Siegpunkte</th>
-                      {showDetails && <th className="border p-2">Spice</th>}
-                      {showDetails && <th className="border p-2">Solari</th>}
-                      {showDetails && <th className="border p-2">Wasser</th>}
+                      {showDetails && <th className="border p-2 hidden sm:table-cell">Spice</th>}
+                      {showDetails && <th className="border p-2 hidden sm:table-cell">Solari</th>}
+                      {showDetails && <th className="border p-2 hidden sm:table-cell">Wasser</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -106,12 +106,12 @@ export default function Matches() {
                           {result.placement === 3 && '🥉'}
                           {result.placement > 3 && result.placement}
                         </td>
-                        <td className="border p-2">{result.players?.name || '-'}</td>
-                        <td className="border p-2">{result.leaders?.name || '-'}</td>
+                        <td className="border p-2 break-words max-w-[120px]">{result.players?.name || '-'}</td>
+                        <td className="border p-2 break-words max-w-[120px]">{result.leaders?.name || '-'}</td>
                         <td className="border p-2">{result.score}</td>
-                        {showDetails && <td className="border p-2">{result.spice}</td>}
-                        {showDetails && <td className="border p-2">{result.solari}</td>}
-                        {showDetails && <td className="border p-2">{result.water}</td>}
+                        {showDetails && <td className="border p-2 hidden sm:table-cell">{result.spice}</td>}
+                        {showDetails && <td className="border p-2 hidden sm:table-cell">{result.solari}</td>}
+                        {showDetails && <td className="border p-2 hidden sm:table-cell">{result.water}</td>}
                       </tr>
                     ))}
                   </tbody>
