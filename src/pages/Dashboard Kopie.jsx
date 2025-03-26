@@ -179,7 +179,38 @@ export default function Dashboard() {
     ? (matches4.reduce((sum, match) => sum + (match[0].matches.played_rounds ?? 0), 0) / matches4.length).toFixed(1)
     : '–'
 
-  return (
+    const placementOverTime = []
+
+    sortedDates.forEach(date => {
+      const matchGroups = results.reduce((acc, r) => {
+        if (r.matches.date !== date) return acc
+        if (!acc[r.match_id]) acc[r.match_id] = []
+        acc[r.match_id].push(r)
+        return acc
+      }, {})
+    
+      Object.entries(matchGroups).forEach(([matchId, matchResults]) => {
+        const sorted = [...matchResults].sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score
+          if (b.spice !== a.spice) return b.spice - a.spice
+          if (b.solari !== a.solari) return b.solari - a.solari
+          return b.water - a.water
+        })
+    
+        const dataPoint = { date: new Date(date).toLocaleDateString() }
+    
+        players.forEach(player => {
+          const index = sorted.findIndex(r => r.players.id === player.id)
+          dataPoint[player.name] = index >= 0 ? index + 1 : null
+        })
+    
+        placementOverTime.push(dataPoint)
+      })
+    })
+    
+
+
+return (
     <div className="p-4 max-w-5xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>
 
@@ -248,8 +279,29 @@ export default function Dashboard() {
               type="monotone"
               dataKey={player.name}
               stroke={playerColors[player.name] || '#000'}
-              strokeWidth={2}
+              strokeWidth={3}
               dot={false}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+
+      <h2 className="text-xl font-semibold mt-10 mb-2">📉 Platzierungen im Verlauf</h2>
+      <ResponsiveContainer width="100%" height={400}>
+        <LineChart data={placementOverTime}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis reversed={true} allowDecimals={true} domain={[1, 4]} />
+          <Tooltip />
+          <Legend />
+          {players.map(player => (
+            <Line
+              key={player.id + '-placement'}
+              type="monotone"
+              dataKey={player.name}
+              stroke={playerColors[player.name] || '#000'}
+              strokeWidth={3}
+              dot={true}
             />
           ))}
         </LineChart>
@@ -259,9 +311,9 @@ export default function Dashboard() {
         <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
         <button
           onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
-          className="bg-gray-50 px-3 py-1 rounded"
+          className="bg-gray-200 px-3 py-1 rounded"
         >
-          {leaderMode === 'mostUsed' ? 'Zeige erfolgreichste Leader' : 'Zeige meistgespielte Leader'}
+          {leaderMode === 'mostUsed' ? 'Zeige beste Leader nach Punkten' : 'Zeige meistgespielte Leader'}
         </button>
       </div>
 

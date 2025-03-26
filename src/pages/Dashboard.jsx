@@ -6,10 +6,10 @@ import {
 } from 'recharts'
 
 const playerColors = {
-  Janosch: '#3B82F6',   // blau
-  Hubertus: '#10B981', // grün
-  Casjen: '#EF4444',   // rot
-  Alex: '#F97316'      // orange
+  Janosch: '#3B82F6',
+  Hubertus: '#10B981',
+  Casjen: '#EF4444',
+  Alex: '#F97316'
 }
 
 export default function Dashboard() {
@@ -167,7 +167,6 @@ export default function Dashboard() {
   }, {})
 
   const matchesWithRounds = Object.values(matchGroups).filter(m => m[0].matches.played_rounds !== null)
-
   const matches3 = matchesWithRounds.filter(m => m.length === 3)
   const matches4 = matchesWithRounds.filter(m => m.length === 4)
 
@@ -179,39 +178,37 @@ export default function Dashboard() {
     ? (matches4.reduce((sum, match) => sum + (match[0].matches.played_rounds ?? 0), 0) / matches4.length).toFixed(1)
     : '–'
 
-    const placementOverTime = []
+  const placementOverTime = []
 
-    sortedDates.forEach(date => {
-      const matchGroups = results.reduce((acc, r) => {
-        if (r.matches.date !== date) return acc
-        if (!acc[r.match_id]) acc[r.match_id] = []
-        acc[r.match_id].push(r)
-        return acc
-      }, {})
-    
-      Object.entries(matchGroups).forEach(([matchId, matchResults]) => {
-        const sorted = [...matchResults].sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score
-          if (b.spice !== a.spice) return b.spice - a.spice
-          if (b.solari !== a.solari) return b.solari - a.solari
-          return b.water - a.water
-        })
-    
-        const dataPoint = { date: new Date(date).toLocaleDateString() }
-    
-        players.forEach(player => {
-          const index = sorted.findIndex(r => r.players.id === player.id)
-          dataPoint[player.name] = index >= 0 ? index + 1 : null
-        })
-    
-        placementOverTime.push(dataPoint)
+  sortedDates.forEach(date => {
+    const matchGroups = results.reduce((acc, r) => {
+      if (r.matches.date !== date) return acc
+      if (!acc[r.match_id]) acc[r.match_id] = []
+      acc[r.match_id].push(r)
+      return acc
+    }, {})
+
+    Object.entries(matchGroups).forEach(([matchId, matchResults]) => {
+      const sorted = [...matchResults].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        if (b.spice !== a.spice) return b.spice - a.spice
+        if (b.solari !== a.solari) return b.solari - a.solari
+        return b.water - a.water
       })
+
+      const dataPoint = { date: new Date(date).toLocaleDateString() }
+
+      players.forEach(player => {
+        const index = sorted.findIndex(r => r.players.id === player.id)
+        dataPoint[player.name] = index >= 0 ? index + 1 : null
+      })
+
+      placementOverTime.push(dataPoint)
     })
-    
+  })
 
-
-return (
-    <div className="p-4 max-w-5xl mx-auto">
+  return (
+    <div className="container mx-auto px-4">
       <h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>
 
       <div className="mb-6 border border-gray-300 rounded p-4 bg-gray-800">
@@ -221,28 +218,30 @@ return (
       </div>
 
       <h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
-      <table className="w-full border border-collapse mb-8">
-        <thead>
-          <tr className="bg-gray-800">
-            <th className="border p-2 text-left">Spieler</th>
-            <th className="border p-2">Partien</th>
-            <th className="border p-2">Siege</th>
-            <th className="border p-2">Ø Punkte</th>
-            <th className="border p-2">Winrate (%)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {playerStats.map(stat => (
-            <tr key={stat.player}>
-              <td className="border p-2">{stat.player}</td>
-              <td className="border p-2 text-center">{stat.totalGames}</td>
-              <td className="border p-2 text-center">{stat.wins}</td>
-              <td className="border p-2 text-center">{stat.avgScore}</td>
-              <td className="border p-2 text-center">{stat.winrate}</td>
+      <div className="overflow-x-auto mb-8">
+        <table className="min-w-full border border-collapse">
+          <thead>
+            <tr className="bg-gray-800">
+              <th className="border p-2 text-left">Spieler</th>
+              <th className="border p-2">Partien</th>
+              <th className="border p-2">Siege</th>
+              <th className="border p-2">Ø Punkte</th>
+              <th className="border p-2">Winrate (%)</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {playerStats.map(stat => (
+              <tr key={stat.player}>
+                <td className="border p-2 break-words whitespace-normal">{stat.player}</td>
+                <td className="border p-2 text-center">{stat.totalGames}</td>
+                <td className="border p-2 text-center">{stat.wins}</td>
+                <td className="border p-2 text-center">{stat.avgScore}</td>
+                <td className="border p-2 text-center">{stat.winrate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <h2 className="text-xl font-semibold mb-2">Winrate-Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
