@@ -18,10 +18,30 @@ export default function Dashboard() {
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [leaderMode, setLeaderMode] = useState('mostUsed')
+  const [matchStats, setMatchStats] = useState({ total: 0, dune: 0, uprising: 0 })
+
 
   useEffect(() => {
     fetchData()
+    fetchMatchStats()
   }, [])
+  
+  async function fetchMatchStats() {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('id, game_id, games (id, name)')
+  
+    if (error) {
+      console.error('Fehler beim Laden der Matches:', error)
+      return
+    }
+  
+    const total = data.length
+    const dune = data.filter(m => m.games?.name === 'Dune Imperium').length
+    const uprising = data.filter(m => m.games?.name === 'Dune Imperium Uprising').length
+  
+    setMatchStats({ total, dune, uprising })
+  }
 
   async function fetchData() {
     const { data, error } = await supabase
@@ -45,6 +65,8 @@ export default function Dashboard() {
     }
 
     setResults(data)
+
+   
 
     const uniquePlayers = [
       ...new Map(data.map(r => [r.players.id, r.players])).values()
@@ -211,8 +233,24 @@ export default function Dashboard() {
   return (
     <div className="container mx-auto px-4"><br />
      {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
+    <p className="text-sm text-gray-500">Gesamt Partien</p>
+    <p className="text-3xl font-bold">{matchStats.total}</p>
+  </div>
+  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
+    <p className="text-sm text-gray-500">Dune Imperium</p>
+    <p className="text-3xl font-bold">{matchStats.dune}</p>
+  </div>
+  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
+    <p className="text-sm text-gray-500">Dune Imperium Uprising</p>
+    <p className="text-3xl font-bold">{matchStats.uprising}</p>
+  </div>
+</div>
 
-      <div className="mb-6 border border-gray-300 rounded p-4 bg-gray-800">
+
+
+      <div className="mb-4 border rounded-lg rounded p-4 dark:bg-gray-800">
         <h2 className="text-xl font-semibold mb-2">⏱ Durchschnittliche Rundenanzahl</h2>
         <p><strong>Bei 3 Spielern:</strong> {avgRounds3}</p>
         <p><strong>Bei 4 Spielern:</strong> {avgRounds4}</p>
@@ -251,7 +289,7 @@ export default function Dashboard() {
 <div className="overflow-x-auto mb-8 hidden md:block">
   <table className="min-w-full border border-collapse">
     <thead>
-      <tr className="bg-gray-800">
+      <tr className="dark:bg-gray-800">
         <th className="border p-2 text-left">Spieler</th>
         <th className="border p-2">Partien</th>
         <th className="border p-2">Siege</th>
@@ -278,7 +316,7 @@ export default function Dashboard() {
   {playerStats.map(stat => (
     <div
       key={stat.player}
-      className="border rounded-lg p-4 shadow-sm bg-gray-800"
+      className="mb-2 border rounded-lg p-4 shadow-sm dark:bg-gray-800"
     >
       <div className="font-semibold text-lg mb-2">{stat.player}</div>
       <div className="text-sm space-y-1">
@@ -416,7 +454,7 @@ export default function Dashboard() {
         {leaderStats.map(stat => (
           <div
             key={stat.player}
-            className="border p-4 rounded shadow bg-gray-800 max-h-80 overflow-y-auto"
+            className="border p-4 rounded shadow max-h-80 overflow-y-auto dark:bg-gray-800"
           >
             <h3 className="font-semibold mb-2 text-base md:text-lg">{stat.player}</h3>
             <table className="w-full table-fixed border border-collapse text-sm md:text-base">
