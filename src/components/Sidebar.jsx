@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Home, PlusCircle, List, X } from 'lucide-react';
+import { Home, Trophy, PlusCircle, List, X } from 'lucide-react';
 
 export default function Sidebar({ isOpen, closeSidebar }) {
   return (
@@ -11,7 +11,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
       >
         <div className="p-4 flex justify-between items-center font-semibold text-xl text-green-500">
           Dunen Dashboard
-          <button className="md:hidden" onClick={closeSidebar}>
+          <button className="md:hidden dark:bg-white" onClick={closeSidebar}>
             <X />
           </button>
         </div>
@@ -19,7 +19,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
           <ul>
             <li className="px-4 py-2 hover:bg-gray-700">
               <Link to="/" className="flex items-center gap-3 " onClick={closeSidebar}>
-                <Home className="w-5 h-5 text-white" /> Dashboard
+                <Trophy className="w-5 h-5 text-white" /> Dashboard
               </Link>
             </li>
             <li className="px-4 py-2 hover:bg-gray-700">

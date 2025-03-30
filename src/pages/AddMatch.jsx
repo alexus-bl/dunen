@@ -57,7 +57,7 @@ export default function AddMatch() {
 
   return (
     <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
-      <h2 className="text-3xl font-bold mb-6 flex items-center gap-2"><PlusCircle className="text-blue-500" /> Neue Partie eintragen</h2>
+      <h2 className="text-3xl font-bold mb-6 flex items-center gap-2"><PlusCircle className="text-blue-500 w-6 h-6" /> Neue Partie eintragen</h2>
 
       {resultsFormProps ? (
         <ResultsForm
@@ -138,7 +138,7 @@ export default function AddMatch() {
             />
           </label>
 
-          <button type="submit" className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition">
+          <button type="submit" className="bg-blue-500 dark:text-white p-2 rounded hover:bg-blue-600 transition">
             Partie speichern
           </button>
         </form>

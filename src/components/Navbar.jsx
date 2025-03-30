@@ -2,8 +2,8 @@ import { Bell, UserCircle, Search, Menu } from 'lucide-react';
 
 export default function Navbar({ toggleSidebar }) {
   return (
-    <header className="flex w-full justify-between items-center bg-gray-800 text-white py-3 px-6">
-      <button className="md:hidden mr-4" onClick={toggleSidebar}>
+    <header className="flex w-full justify-between items-center bg-gray-800 dark:text-white py-3 px-6">
+      <button className="md:hidden mr-4 dark:bg-white dark:text-gray-800" onClick={toggleSidebar}>
         <Menu className="w-6 h-6" />
       </button>{/* 
       <div className="flex items-center flex-grow">

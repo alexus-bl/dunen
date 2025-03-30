@@ -336,7 +336,7 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
     <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
 
 <h1 className="text-3xl font-bold mb-8 flex items-center gap-2">
-  <Trophy className="text-green-400" /> Dashboard
+  <Trophy className="text-green-400 w-8 h-8 " /> Dashboard
 </h1>
 
      {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
@@ -358,7 +358,7 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
     </h2>
     <button
       onClick={() => setLeaderModeGlobal(leaderModeGlobal === 'mostUsed' ? 'bestWinrate' : 'mostUsed')}
-      className="bg-gray-200 hover:bg-gray-300 px-3 py-1 dark:text-white rounded flex items-center gap-2 text-sm"
+      className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
     >
       {leaderModeGlobal === 'mostUsed' ? (
         <><Shuffle className="w-4 h-4" /> Nach Siegquote anzeigen</>
@@ -521,7 +521,7 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
     </div>
 
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-      <h2 className="text-xl font-semibold mt-10 mb-4">⏳ Punkteentwicklung im Verlauf</h2>
+      <h2 className="text-xl font-semibold mt-10 mb-4">⏳ Punkteentwicklung</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={avgScoreOverTime}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -589,8 +589,8 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
           className={`px-3 py-1 rounded text-sm border whitespace-nowrap transition
             ${
               selectedPlayerIndex === index
-                ? 'bg-blue-500 text-green-500 border-blue-500'
-                : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 dark:border-gray-600'
+                ? 'text-green-500 border-blue-500'
+                : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300'
             }`}
         >
           {stat.player}
@@ -609,10 +609,12 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
           cx="50%"
           cy="50%"
           paddingAngle={5}
-          innerRadius={60}
-          outerRadius={90}
+          innerRadius={55}
+          outerRadius={75}
           labelLine={false}
+          labelRadius={50}
           label={window.innerWidth >= 320 ? ({ percent }) => `${(percent * 100).toFixed(1)}%` : false}
+          
         >
           {placementPieData[selectedPlayerIndex].map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -677,12 +679,12 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
         <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
         <button
           onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
-          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 dark:text-white rounded flex items-center gap-2 text-sm"
+          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
         >
           {leaderMode === 'mostUsed' ? (
-            <><Star className="w-4 h-4 dark:text-white" /> Zeige beste Leader nach Punkten</>
+            <><Star className="w-4 h-4" /> Zeige beste Leader nach Punkten</>
           ) : (
-            <><Shuffle className="w-4 h-4 dark:text-white" /> Zeige meistgespielte Leader</>
+            <><Shuffle className="w-4 h-4" /> Zeige meistgespielte Leader</>
           )}
         </button>
       </div>
