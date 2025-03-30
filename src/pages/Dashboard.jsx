@@ -284,6 +284,21 @@ const placementPieData = placementsPerPlayer.length > 0
     })
   : [];
 
+  const donutChartData = placementsPerPlayer.map(playerData => {
+    const data = Object.entries(playerData.placements).map(([place, percentage]) => ({
+      name: `${place}. Platz`,
+      value: parseFloat(percentage)
+    }));
+    const avgPlacement = Object.entries(playerData.placements).reduce((sum, [place, percent]) => {
+      return sum + parseInt(place) * (parseFloat(percent) / 100);
+    }, 0).toFixed(2);
+    return {
+      name: playerData.player,
+      data,
+      avgPlacement
+    };
+  });
+
 
 
 // Globale Leader-Statistik berechnen
@@ -560,6 +575,7 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
   </div>
 </div>*/}
 
+
 <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
     <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-800 ">
@@ -582,8 +598,8 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
       ))}
     </div>
   </div>
-
   {placementPieData.length > 0 && (
+  <div className="relative w-full h-[300px]">
     <ResponsiveContainer width="100%" height={300}>
       <PieChart>
         <Pie
@@ -592,8 +608,11 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
           nameKey="name"
           cx="50%"
           cy="50%"
-          outerRadius={100}
-          label={window.innerWidth >= 640 ? ({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%` : false}
+          paddingAngle={5}
+          innerRadius={60}
+          outerRadius={90}
+          labelLine={false}
+          label={window.innerWidth >= 320 ? ({ percent }) => `${(percent * 100).toFixed(1)}%` : false}
         >
           {placementPieData[selectedPlayerIndex].map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -603,7 +622,29 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
         <Legend />
       </PieChart>
     </ResponsiveContainer>
-  )}
+
+    {/* ZENTRIERTER Ø-Wert */}
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+      <div className="text-sm font-xs text-gray-600">
+        Ø Platzierung
+      </div>
+      <div className="text-xl font-bold text-gray-800">
+        {
+          // Durchschnitt berechnen
+          (() => {
+            const chart = placementsPerPlayer[selectedPlayerIndex];
+            const avg = Object.entries(chart.placements).reduce((sum, [place, percent]) => {
+              return sum + parseInt(place) * (parseFloat(percent) / 100);
+            }, 0);
+            return avg.toFixed(2);
+          })()
+        }
+      </div>
+    </div>
+  </div>
+)}
+
+  
 </div>
 
  {/*  Platzierungen pro Spieler Flussdiagramm
