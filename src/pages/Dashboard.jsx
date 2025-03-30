@@ -335,8 +335,8 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
   return (
     <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
 
-<h1 className="text-3xl font-bold mb-8 flex items-center gap-2">
-  <Trophy className="text-green-400 w-8 h-8 " /> Dashboard
+<h1 className="text-2xl font-bold mb-8 flex items-center gap-2">
+  <Trophy className="text-green-400 w-6 h-6" /> Dashboard
 </h1>
 
      {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
