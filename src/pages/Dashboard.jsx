@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { Trophy, TrendingUp, Shuffle, Star } from 'lucide-react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  PieChart, Pie, Cell,LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 
@@ -28,6 +28,8 @@ export default function Dashboard() {
   const [leaderMode, setLeaderMode] = useState('mostUsed')
   const [matchStats, setMatchStats] = useState({ total: 0, dune: 0, uprising: 0 })
   const [leaderModeGlobal, setLeaderModeGlobal] = useState('mostUsed');
+  const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
+
 
 
   useEffect(() => {
@@ -243,6 +245,47 @@ export default function Dashboard() {
     
   })
 
+  // Platzierungs-Übersicht pro Spieler berechnen
+const placementsPerPlayer = players.map(player => {
+  const placementCounts = {};
+  let totalGames = 0;
+  results.forEach(result => {
+    if (result.players.id === player.id) {
+      const matchResults = results.filter(r => r.match_id === result.match_id);
+      const sorted = matchResults.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.spice !== a.spice) return b.spice - a.spice;
+        if (b.solari !== a.solari) return b.solari - a.solari;
+        return b.water - a.water;
+      });
+      const placement = sorted.findIndex(r => r.players.id === player.id) + 1;
+      placementCounts[placement] = (placementCounts[placement] || 0) + 1;
+      totalGames++;
+    }
+  });
+  const placementPercentages = {};
+  Object.entries(placementCounts).forEach(([place, count]) => {
+    placementPercentages[place] = ((count / totalGames) * 100).toFixed(1);
+  });
+  return {
+    player: player.name,
+    placements: placementPercentages
+  };
+});
+
+const COLORS = ['#4ADE80', '#60A5FA', '#FBBF24', '#F87171'];
+
+const placementPieData = placementsPerPlayer.length > 0
+  ? placementsPerPlayer.map(playerData => {
+      return Object.entries(playerData.placements).map(([place, percentage]) => ({
+        name: `${place}. Platz`,
+        value: parseFloat(percentage)
+      }));
+    })
+  : [];
+
+
+
 // Globale Leader-Statistik berechnen
 const leaderOccurrences = {};
 const leaderWins = {};
@@ -255,7 +298,7 @@ results.forEach(result => {
 
   const matchResults = results.filter(r => r.match_id === result.match_id);
   const winner = getWinner(matchResults);
-  
+
   const winnerLeaderName = winner?.leaders?.name;
   if (winnerLeaderName && winnerLeaderName === leaderName) {
     leaderWins[leaderName] = (leaderWins[leaderName] || 0) + 1;
@@ -268,9 +311,9 @@ const leaderStatsGlobal = Object.entries(leaderOccurrences).map(([name, count]) 
   winrate: leaderWins[name] ? ((leaderWins[name] / count) * 100).toFixed(1) : '0.0'
 }));
 
-const top3Leaders = leaderModeGlobal === 'mostUsed'
-  ? [...leaderStatsGlobal].sort((a, b) => b.count - a.count).slice(0, 3)
-  : [...leaderStatsGlobal].sort((a, b) => parseFloat(b.winrate) - parseFloat(a.winrate)).slice(0, 3);
+const top7Leaders = leaderModeGlobal === 'mostUsed'
+  ? [...leaderStatsGlobal].sort((a, b) => b.count - a.count).slice(0, 7)
+  : [...leaderStatsGlobal].sort((a, b) => parseFloat(b.winrate) - parseFloat(a.winrate)).slice(0, 7);
 
 
 
@@ -294,41 +337,45 @@ const top3Leaders = leaderModeGlobal === 'mostUsed'
 
 
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <Star className="text-yellow-400" /> Globale Top 3 Leader
-        </h2>
-        <button
-          onClick={() => setLeaderModeGlobal(leaderModeGlobal === 'mostUsed' ? 'bestWinrate' : 'mostUsed')}
-          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 text-white rounded flex items-center gap-2 text-sm"
-        >
-          {leaderModeGlobal === 'mostUsed' ? (
-            <><Shuffle className="w-4 h-4" /> Nach Siegquote anzeigen</>
-          ) : (
-            <><Star className="w-4 h-4" /> Meistgespielte anzeigen</>
-          )}
-        </button>
-      </div>
+  <div className="flex items-center justify-between">
+    <h2 className="text-xl font-semibold flex items-center gap-2">
+      <Star className="text-yellow-400" /> Globale Top 7 Leader
+    </h2>
+    <button
+      onClick={() => setLeaderModeGlobal(leaderModeGlobal === 'mostUsed' ? 'bestWinrate' : 'mostUsed')}
+      className="bg-gray-200 hover:bg-gray-300 px-3 py-1 dark:text-white rounded flex items-center gap-2 text-sm"
+    >
+      {leaderModeGlobal === 'mostUsed' ? (
+        <><Shuffle className="w-4 h-4" /> Nach Siegquote anzeigen</>
+      ) : (
+        <><Star className="w-4 h-4" /> Meistgespielte anzeigen</>
+      )}
+    </button>
+  </div>
 
-      <table className="mt-4 w-full text-left">
-        <thead>
-          <tr className="bg-gray-800 text-white">
-            <th className="p-2">Leader</th>
-            <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Siegquote (%)'}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {top3Leaders.map(leader => (
-            <tr key={leader.name} className="border-t">
-              <td className="p-2 font-medium">{leader.name}</td>
-              <td className="p-2 text-center">
-                {leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+  <table className="mt-4 w-full text-left">
+    <thead>
+      <tr className="bg-gray-800 text-white">
+        <th className="p-2">Leader</th>
+        <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Siegquote (%)'}</th>
+        <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Siegquote (%)' : 'Spiele'}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {top7Leaders.map(leader => (
+        <tr key={leader.name} className="border-t">
+          <td className="p-2 font-medium">{leader.name}</td>
+          <td className="p-2 text-center">
+            {leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}
+          </td>
+          <td className="p-2 text-center">
+            {leaderModeGlobal === 'mostUsed' ? `${leader.winrate}%` : leader.count}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
 
 
       <div className="bg-white rounded-xl shadow-lg flex-wrap p-6 mb-8">
@@ -391,6 +438,8 @@ const top3Leaders = leaderModeGlobal === 'mostUsed'
     </tbody>
   </table>
 </div>*/}
+
+
 
 
  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Star className="text-yellow-400" /> Spieler-Statistik</h2>
@@ -477,6 +526,85 @@ const top3Leaders = leaderModeGlobal === 'mostUsed'
         </LineChart>
       </ResponsiveContainer>
 
+     {/* Übersicht Platzierungen pro Spieler 
+     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+    🥇 Übersicht der Platzierungen pro Spieler (in %)
+  </h2>
+  <div className="overflow-x-auto">
+    <table className="w-full text-left">
+      <thead className="bg-gray-800 text-white">
+        <tr>
+          <th className="p-2">Spieler</th>
+          {Array.from({ length: players.length }, (_, i) => i + 1).map(place => (
+            <th key={place} className="p-2 text-center">{place}. Platz</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {placementsPerPlayer.map(stat => (
+          <tr key={stat.player} className="border-t">
+            <td className="p-2 font-medium">{stat.player}</td>
+            {Array.from({ length: players.length }, (_, i) => i + 1).map(place => (
+              <td key={place} className="p-2 text-center">
+                {stat.placements[place] ? `${stat.placements[place]}%` : '0.0%'}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>*/}
+
+<div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 mb-8">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+    <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-800 dark:text-gray-100">
+      🥧 Platzierungen
+    </h2>
+    <div className="flex flex-wrap gap-2 justify-start sm:justify-end max-w-full">
+      {placementsPerPlayer.map((stat, index) => (
+        <button
+          key={stat.player}
+          onClick={() => setSelectedPlayerIndex(index)}
+          className={`px-3 py-1 rounded text-sm border whitespace-nowrap transition
+            ${
+              selectedPlayerIndex === index
+                ? 'bg-blue-500 text-green-500 border-blue-500'
+                : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 dark:border-gray-600'
+            }`}
+        >
+          {stat.player}
+        </button>
+      ))}
+    </div>
+  </div>
+
+  {placementPieData.length > 0 && (
+    <ResponsiveContainer width="100%" height={300}>
+      <PieChart>
+        <Pie
+          data={placementPieData[selectedPlayerIndex]}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="50%"
+          outerRadius={100}
+          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+        >
+          {placementPieData[selectedPlayerIndex].map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+        <Legend />
+      </PieChart>
+    </ResponsiveContainer>
+  )}
+</div>
+
+ {/*  Platzierungen pro Spieler Flussdiagramm
+
       <h2 className="text-xl font-semibold mt-10 mb-2">📉 Platzierungen im Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={placementOverTime}>
@@ -497,7 +625,7 @@ const top3Leaders = leaderModeGlobal === 'mostUsed'
            />
           ))}
         </LineChart>
-      </ResponsiveContainer>
+      </ResponsiveContainer> */}
 
     
       
@@ -505,12 +633,12 @@ const top3Leaders = leaderModeGlobal === 'mostUsed'
         <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
         <button
           onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
-          className=" hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm whitespace-nowrap text-white"
+          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 dark:text-white rounded flex items-center gap-2 text-sm"
         >
           {leaderMode === 'mostUsed' ? (
-            <><Star className="w-4 h-4 text-white" /> Zeige beste Leader nach Punkten</>
+            <><Star className="w-4 h-4 dark:text-white" /> Zeige beste Leader nach Punkten</>
           ) : (
-            <><Shuffle className="w-4 h-4 text-white" /> Zeige meistgespielte Leader</>
+            <><Shuffle className="w-4 h-4 dark:text-white" /> Zeige meistgespielte Leader</>
           )}
         </button>
       </div>
