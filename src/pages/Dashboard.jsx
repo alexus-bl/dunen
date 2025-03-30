@@ -431,9 +431,7 @@ const top3Leaders = leaderModeGlobal === 'mostUsed'
           </div>
         ))}
       </div>
-  
-
-
+      <br />
 
       <h2 className="text-xl font-semibold mb-4">📈 Winrate-Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
