@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
 import ResultsForm from './ResultsForm'
-import { PlusCircle } from 'lucide-react'
 
 export default function AddMatch() {
   const [date, setDate] = useState('')
@@ -10,7 +9,7 @@ export default function AddMatch() {
   const [expansionId, setExpansionId] = useState(null)
   const [withFamilyAtomic, setWithFamilyAtomic] = useState(false)
   const [playedRounds, setPlayedRounds] = useState(null)
-  const [resultsFormProps, setResultsFormProps] = useState(null)
+  const [resultsFormProps, setResultsFormProps] = useState(null) // <- Neu hinzugefügt
 
   const resetForm = () => {
     setDate('')
@@ -44,6 +43,7 @@ export default function AddMatch() {
 
       const confirmResults = window.confirm('Möchtest du jetzt die Ergebnisse speichern?')
       if (confirmResults) {
+        // Erst hier definitiv und vollständig Werte setzen
         setResultsFormProps({
           matchId: data[0].id,
           gameId: Number(gameId),
@@ -54,10 +54,11 @@ export default function AddMatch() {
       }
     }
   }
-
+  console.log('Finale übergebene Werte an ResultsForm:', resultsFormProps)
   return (
-    <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
-      <h2 className="text-3xl font-bold mb-6 flex items-center gap-2"><PlusCircle className="text-blue-500" /> Neue Partie eintragen</h2>
+    <div className="p-4 sm:p-6 md:p-8 w-full max-w-full mx-auto">
+
+      <h2 className="text-2xl font-bold">Neue Partie eintragen</h2>
 
       {resultsFormProps ? (
         <ResultsForm
@@ -65,11 +66,12 @@ export default function AddMatch() {
           gameId={resultsFormProps.gameId}
           withExpansion={resultsFormProps.withExpansion}
           resetForm={resetForm}
+          
         />
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 bg-white rounded-xl p-6 shadow-md">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <label className="flex flex-col">
-            <span className="font-semibold">Datum:</span>
+            Datum:
             <input
               type="date"
               value={date}
@@ -80,7 +82,7 @@ export default function AddMatch() {
           </label>
 
           <label className="flex flex-col">
-            <span className="font-semibold">Spiel:</span>
+            Spiel:
             <select
               value={gameId ?? ''}
               required
@@ -99,12 +101,12 @@ export default function AddMatch() {
               checked={withExpansion}
               onChange={(e) => setWithExpansion(e.target.checked)}
             />
-            <span>Mit Erweiterung?</span>
+            Mit Erweiterung?
           </label>
 
           {withExpansion && (
             <label className="flex flex-col">
-              <span className="font-semibold">Erweiterung:</span>
+              Erweiterung:
               <select
                 value={expansionId || ''}
                 onChange={(e) => setExpansionId(Number(e.target.value))}
@@ -122,11 +124,11 @@ export default function AddMatch() {
               checked={withFamilyAtomic}
               onChange={(e) => setWithFamilyAtomic(e.target.checked)}
             />
-            <span>Mit Family Atomic gespielt?</span>
+            Mit Family Atomic gespielt?
           </label>
 
           <label className="flex flex-col">
-            <span className="font-semibold">Gespielte Runden (optional):</span>
+            Gespielte Runden (optional):
             <input
               type="number"
               value={playedRounds ?? ''}
@@ -138,7 +140,7 @@ export default function AddMatch() {
             />
           </label>
 
-          <button type="submit" className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition">
+          <button type="submit" className="bg-blue-500 text-white p-2 rounded">
             Partie speichern
           </button>
         </form>

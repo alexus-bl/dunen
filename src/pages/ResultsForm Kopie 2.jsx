@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { SelectButton } from 'primereact/selectbutton'
-import { Users, ClipboardCheck } from 'lucide-react'
 
 export default function ResultsForm({ matchId, resetForm, gameId, withExpansion }) {
   const playerOptions = [
@@ -63,39 +62,43 @@ export default function ResultsForm({ matchId, resetForm, gameId, withExpansion 
   const currentPlayer = selectedPlayers[currentPlayerIndex - 1]
 
   return (
-    <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
+    <div className="p-4 max-w-md mx-auto">
       {!isResultsComplete ? (
         currentPlayerIndex === 0 ? (
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            <h3 className="text-2xl font-bold mb-4 flex items-center gap-2"><Users className="text-blue-500" /> Wer hat mitgespielt?</h3>
+          <div>
+            <h3 className="text-xl font-bold mb-4">Wer hat mitgespielt?</h3>
             <SelectButton
               value={selectedPlayers}
               onChange={(e) => setSelectedPlayers(e.value)}
               options={playerOptions}
               optionLabel="name"
               multiple
-              className="mb-4"
+              className="mb-2"
               pt={{
+                button: {
+                 
+                },
                 root: {
-                  className: 'flex gap-2'
+                  className: 'flex gap-0' // optional: Abstand zwischen Buttons
                 }
               }}
+             
             />
             <button
               onClick={startResultsInput}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+              className="bg-blue-500 text-white px-4 py-2 rounded"
             >
               Weiter
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            <h3 className="text-2xl font-bold mb-4">
+          <div>
+            <h3 className="text-xl font-bold mb-4">
               Ergebnisse: {currentPlayer?.name}
             </h3>
 
-            <label className="flex flex-col mb-4">
-              <span className="font-semibold">Anführer:</span>
+            <label className="flex flex-col mb-2">
+              Anführer:
               <select
                 value={playerResults[currentPlayer.id]?.leader || ''}
                 onChange={(e) =>
@@ -117,9 +120,35 @@ export default function ResultsForm({ matchId, resetForm, gameId, withExpansion 
             </label>
 
             {['score', 'spice', 'solari', 'water'].map(field => (
-              <label key={field} className="flex flex-col mb-3 capitalize">
-                <span className="font-semibold">{field.charAt(0).toUpperCase() + field.slice(1)}:</span>
-                <input
+              <label key={field} className="flex flex-col mb-2 capitalize">
+                {field.charAt(0).toUpperCase() + field.slice(1)}:
+
+
+                {/*  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    value={
+                      playerResults[currentPlayer.id]?.score === 0
+                        ? '0'
+                        : playerResults[currentPlayer.id]?.score || ''
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setPlayerResults(prev => ({
+                        ...prev,
+                        [currentPlayer.id]: {
+                          ...prev[currentPlayer.id],
+                          score: value === '' ? '' : Number(value)
+                        }
+                      }))
+                    }}
+                    className="border p-2 rounded"
+                  /> */}
+
+                  
+               
+                  <input
                   type="number"
                   min="0"
                   value={playerResults[currentPlayer.id]?.[field] ?? ''}
@@ -134,23 +163,24 @@ export default function ResultsForm({ matchId, resetForm, gameId, withExpansion 
                   }
                   className="border p-2 rounded"
                 />
+                
               </label>
             ))}
 
             <button
               onClick={handleNextPlayer}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
+              className="bg-green-500 text-white px-4 py-2 rounded mt-4"
             >
               {currentPlayerIndex < selectedPlayers.length ? 'Weiter' : 'Abschließen'}
             </button>
           </div>
         )
       ) : (
-        <div className="bg-white rounded-xl p-6 shadow-md">
-          <h3 className="text-2xl font-bold mb-4 flex items-center gap-2"><ClipboardCheck className="text-green-500" /> Ergebnisse überprüfen und speichern</h3>
+        <div>
+          <h3 className="text-xl font-bold mb-4">Ergebnisse überprüfen und speichern</h3>
           <button
             onClick={handleSaveResults}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            className="bg-blue-600 text-white px-4 py-2 rounded"
           >
             Ergebnisse speichern
           </button>

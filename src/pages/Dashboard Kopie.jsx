@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { Shuffle, Star } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 
 const playerColors = {
-  Janosch: '#3B82F6',   // blau
-  Hubertus: '#10B981', // grün
-  Casjen: '#EF4444',   // rot
-  Alex: '#F97316'      // orange
+  Janosch: '#3B82F6',
+  Hubertus: '#10B981',
+  Casjen: '#EF4444',
+  Alex: '#F97316'
 }
 
 export default function Dashboard() {
@@ -17,10 +18,30 @@ export default function Dashboard() {
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [leaderMode, setLeaderMode] = useState('mostUsed')
+  const [matchStats, setMatchStats] = useState({ total: 0, dune: 0, uprising: 0 })
+
 
   useEffect(() => {
     fetchData()
+    fetchMatchStats()
   }, [])
+  
+  async function fetchMatchStats() {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('id, game_id, games (id, name)')
+  
+    if (error) {
+      console.error('Fehler beim Laden der Matches:', error)
+      return
+    }
+  
+    const total = data.length
+    const dune = data.filter(m => m.games?.name === 'Dune Imperium').length
+    const uprising = data.filter(m => m.games?.name === 'Dune Imperium Uprising').length
+  
+    setMatchStats({ total, dune, uprising })
+  }
 
   async function fetchData() {
     const { data, error } = await supabase
@@ -44,6 +65,8 @@ export default function Dashboard() {
     }
 
     setResults(data)
+
+   
 
     const uniquePlayers = [
       ...new Map(data.map(r => [r.players.id, r.players])).values()
@@ -167,7 +190,6 @@ export default function Dashboard() {
   }, {})
 
   const matchesWithRounds = Object.values(matchGroups).filter(m => m[0].matches.played_rounds !== null)
-
   const matches3 = matchesWithRounds.filter(m => m.length === 3)
   const matches4 = matchesWithRounds.filter(m => m.length === 4)
 
@@ -179,70 +201,134 @@ export default function Dashboard() {
     ? (matches4.reduce((sum, match) => sum + (match[0].matches.played_rounds ?? 0), 0) / matches4.length).toFixed(1)
     : '–'
 
-    const placementOverTime = []
+  const placementOverTime = []
 
-    sortedDates.forEach(date => {
-      const matchGroups = results.reduce((acc, r) => {
-        if (r.matches.date !== date) return acc
-        if (!acc[r.match_id]) acc[r.match_id] = []
-        acc[r.match_id].push(r)
-        return acc
-      }, {})
-    
-      Object.entries(matchGroups).forEach(([matchId, matchResults]) => {
-        const sorted = [...matchResults].sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score
-          if (b.spice !== a.spice) return b.spice - a.spice
-          if (b.solari !== a.solari) return b.solari - a.solari
-          return b.water - a.water
-        })
-    
-        const dataPoint = { date: new Date(date).toLocaleDateString() }
-    
-        players.forEach(player => {
-          const index = sorted.findIndex(r => r.players.id === player.id)
-          dataPoint[player.name] = index >= 0 ? index + 1 : null
-        })
-    
-        placementOverTime.push(dataPoint)
+  sortedDates.forEach(date => {
+    const matchGroups = results.reduce((acc, r) => {
+      if (r.matches.date !== date) return acc
+      if (!acc[r.match_id]) acc[r.match_id] = []
+      acc[r.match_id].push(r)
+      return acc
+    }, {})
+
+    Object.entries(matchGroups).forEach(([matchId, matchResults]) => {
+      const sorted = [...matchResults].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        if (b.spice !== a.spice) return b.spice - a.spice
+        if (b.solari !== a.solari) return b.solari - a.solari
+        return b.water - a.water
       })
+
+      const dataPoint = { date: new Date(date).toLocaleDateString() }
+
+      players.forEach(player => {
+        const index = sorted.findIndex(r => r.players.id === player.id)
+        dataPoint[player.name] = index >= 0 ? index + 1 : null
+      })
+
+      placementOverTime.push(dataPoint)
     })
-    
+  })
+
+  return (
+    <div className="container mx-auto px-4"><br />
+     {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
+    <p className="text-sm text-gray-500">Gesamt Partien</p>
+    <p className="text-3xl font-bold">{matchStats.total}</p>
+  </div>
+  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
+    <p className="text-sm text-gray-500">Dune Imperium</p>
+    <p className="text-3xl font-bold">{matchStats.dune}</p>
+  </div>
+  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
+    <p className="text-sm text-gray-500">Dune Imperium Uprising</p>
+    <p className="text-3xl font-bold">{matchStats.uprising}</p>
+  </div>
+</div>
 
 
-return (
-    <div className="p-4 max-w-5xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>
 
-      <div className="mb-6 border border-gray-300 rounded p-4 bg-gray-800">
+      <div className="mb-4 border rounded-lg rounded p-4 dark:bg-gray-800">
         <h2 className="text-xl font-semibold mb-2">⏱ Durchschnittliche Rundenanzahl</h2>
         <p><strong>Bei 3 Spielern:</strong> {avgRounds3}</p>
         <p><strong>Bei 4 Spielern:</strong> {avgRounds4}</p>
       </div>
-
+{/*
       <h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
-      <table className="w-full border border-collapse mb-8">
-        <thead>
-          <tr className="bg-gray-800">
-            <th className="border p-2 text-left">Spieler</th>
-            <th className="border p-2">Partien</th>
-            <th className="border p-2">Siege</th>
-            <th className="border p-2">Ø Punkte</th>
-            <th className="border p-2">Winrate (%)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {playerStats.map(stat => (
-            <tr key={stat.player}>
-              <td className="border p-2">{stat.player}</td>
-              <td className="border p-2 text-center">{stat.totalGames}</td>
-              <td className="border p-2 text-center">{stat.wins}</td>
-              <td className="border p-2 text-center">{stat.avgScore}</td>
-              <td className="border p-2 text-center">{stat.winrate}</td>
+      <div className="overflow-x-auto mb-8">
+        <table className="min-w-full border border-collapse">
+          <thead>
+            <tr className="bg-gray-800">
+              <th className="border p-2 text-left">Spieler</th>
+              <th className="border p-2">Partien</th>
+              <th className="border p-2">Siege</th>
+              <th className="border p-2">Ø Punkte</th>
+              <th className="border p-2">Winrate (%)</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {playerStats.map(stat => (
+              <tr key={stat.player}>
+                <td className="border p-2 break-words whitespace-normal">{stat.player}</td>
+                <td className="border p-2 text-center">{stat.totalGames}</td>
+                <td className="border p-2 text-center">{stat.wins}</td>
+                <td className="border p-2 text-center">{stat.avgScore}</td>
+                <td className="border p-2 text-center">{stat.winrate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+*/}
+
+<h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
+
+{/* Desktop-Tabelle: nur auf md und größer sichtbar */}
+<div className="overflow-x-auto mb-8 hidden md:block">
+  <table className="min-w-full border border-collapse">
+    <thead>
+      <tr className="dark:bg-gray-800">
+        <th className="border p-2 text-left">Spieler</th>
+        <th className="border p-2">Partien</th>
+        <th className="border p-2">Siege</th>
+        <th className="border p-2">Ø Punkte</th>
+        <th className="border p-2">Winrate (%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {playerStats.map(stat => (
+        <tr key={stat.player}>
+          <td className="border p-2 break-words whitespace-normal">{stat.player}</td>
+          <td className="border p-2 text-center">{stat.totalGames}</td>
+          <td className="border p-2 text-center">{stat.wins}</td>
+          <td className="border p-2 text-center">{stat.avgScore}</td>
+          <td className="border p-2 text-center">{stat.winrate}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+
+{/* Mobile-Version: als Cards */}
+<div className="space-y-4 md:hidden">
+  {playerStats.map(stat => (
+    <div
+      key={stat.player}
+      className="mb-2 border rounded-lg p-4 shadow-sm dark:bg-gray-800"
+    >
+      <div className="font-semibold text-lg mb-2">{stat.player}</div>
+      <div className="text-sm space-y-1">
+        <div><strong>Partien:</strong> {stat.totalGames}</div>
+        <div><strong>Siege:</strong> {stat.wins}</div>
+        <div><strong>Ø Punkte:</strong> {stat.avgScore}</div>
+        <div><strong>Winrate:</strong> {stat.winrate} %</div>
+      </div>
+    </div>
+  ))}
+</div>
+<br />
 
       <h2 className="text-xl font-semibold mb-2">Winrate-Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
@@ -306,7 +392,7 @@ return (
           ))}
         </LineChart>
       </ResponsiveContainer>
-
+{/*
       <div className="flex items-center justify-between mt-10 mb-2">
         <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
         <button
@@ -343,7 +429,60 @@ return (
             </table>
           </div>
         ))}
+      </div>*/}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-10 mb-2 gap-2">
+        <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
+        <button
+          onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
+          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
+        >
+          {leaderMode === 'mostUsed' ? (
+            <>
+              <Star className="w-4 h-4" />
+              Zeige beste Leader nach Punkten
+            </>
+          ) : (
+            <>
+              <Shuffle className="w-4 h-4" />
+              Zeige meistgespielte Leader
+            </>
+          )}
+        </button>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {leaderStats.map(stat => (
+          <div
+            key={stat.player}
+            className="border p-4 rounded shadow max-h-80 overflow-y-auto dark:bg-gray-800"
+          >
+            <h3 className="font-semibold mb-2 text-base md:text-lg">{stat.player}</h3>
+            <table className="w-full table-fixed border border-collapse text-sm md:text-base">
+              <thead>
+                <tr className="bg-gray-800 text-white">
+                  <th className="border p-2 text-left w-2/3">Leader</th>
+                  <th className="border p-2 text-center w-1/3">
+                    {leaderMode === 'mostUsed' ? 'Spiele' : 'Ø Punkte'}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {stat.topLeaders.map(leader => (
+                  <tr key={leader.name}>
+                    <td className="border p-2 break-words whitespace-normal">{leader.name}</td>
+                    <td className="border p-2 text-center">
+                      {leaderMode === 'mostUsed' ? `${leader.count}` : `${leader.avgScore}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+
+
     </div>
+    
   )
 }

@@ -1,34 +1,36 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
-import Dashboard from './pages/Dashboard'
-import AddMatch from './pages/AddMatch'
-import Matches from './pages/Matches'
-import EditMatch from './pages/EditMatch'
-
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useState } from 'react';
+import Dashboard from './pages/Dashboard';
+import AddMatch from './pages/AddMatch';
+import Matches from './pages/Matches';
+import EditMatch from './pages/EditMatch';
+import Sidebar from './components/Sidebar';
+import Navbar from './components/Navbar';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <BrowserRouter>
-      <nav className="p-4 bg-gray-100">
-        <div className="max-w-screen-lg mx-auto flex flex-wrap gap-2 sm:gap-4">
-          <Link to="/" className="text-blue-600 hover:underline">Dashboard</Link>
-          <Link to="/add-match" className="text-blue-600 hover:underline">Neue Partie</Link>
-          <Link to="/matches" className="text-blue-600 hover:underline">Partien</Link>
-        </div> 
-      </nav>
+      <div className="flex flex-col w-screen md:flex-row min-h-screen bg-gray-800">
+        <Sidebar isOpen={isSidebarOpen} closeSidebar={() => setSidebarOpen(false)} />
 
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/add-match" element={<AddMatch />} />
-        <Route path="/matches" element={<Matches />} />
-        <Route path="/edit-match/:matchId" element={<EditMatch />} />
-      </Routes>
+        <div className="flex flex-col flex-1">
+          <Navbar toggleSidebar={() => setSidebarOpen(prev => !prev)} />
+
+          {/* Stelle sicher, dass hier KEINE flex-col und KEINE items-center Klassen stehen */}
+          <main className="flex-1 overflow-x-auto p-4 sm:p-6 md:p-8">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/add-match" element={<AddMatch />} />
+              <Route path="/matches" element={<Matches />} />
+              <Route path="/edit-match/:matchId" element={<EditMatch />} />
+            </Routes>
+          </main>
+        </div>
+      </div>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;

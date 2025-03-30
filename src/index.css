@@ -12,8 +12,8 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: #213547; /* Dunkelgrau oder schwarz, passend für weißen Hintergrund */
+  background-color: #ffffff; /* Standardmäßig heller Hintergrund */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -23,11 +23,11 @@
 
 a {
   font-weight: 500;
-  color: #1b1d47;
+  color: #ffffff;
   text-decoration: inherit;
 }
 a:hover {
-  color: #000000;
+  color: #ffffff;
 }
 
 body {

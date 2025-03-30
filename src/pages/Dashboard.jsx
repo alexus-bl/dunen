@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { Shuffle, Star } from 'lucide-react';
+import { Trophy, TrendingUp, Shuffle, Star } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 
+
 const playerColors = {
   Janosch: '#3B82F6',
   Hubertus: '#10B981',
   Casjen: '#EF4444',
-  Alex: '#F97316'
+  Alex: '#FFBF00'
 }
+
+const playerLineStyles = {
+  Janosch: { strokeDasharray: "5 5", dot: { strokeWidth: 2, r: 4, fill: "#3B82F6" } },
+  Hubertus: { strokeDasharray: "3 3", dot: { strokeWidth: 2, r: 4, fill: "#10B981" }  },
+  Casjen: { strokeDasharray: "", dot: { strokeWidth: 2, r: 4, fill: "#EF4444" } },
+  Alex: { strokeDasharray: "2 2", dot: { strokeWidth: 2, r: 4, fill: "#FFBF00"} },
+};
 
 export default function Dashboard() {
   const [results, setResults] = useState([])
@@ -19,6 +27,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [leaderMode, setLeaderMode] = useState('mostUsed')
   const [matchStats, setMatchStats] = useState({ total: 0, dune: 0, uprising: 0 })
+  const [leaderModeGlobal, setLeaderModeGlobal] = useState('mostUsed');
 
 
   useEffect(() => {
@@ -41,6 +50,7 @@ export default function Dashboard() {
     const uprising = data.filter(m => m.games?.name === 'Dune Imperium Uprising').length
   
     setMatchStats({ total, dune, uprising })
+    
   }
 
   async function fetchData() {
@@ -75,7 +85,8 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  if (loading) return <div className="p-4">Lade Dashboard...</div>
+  if (loading) return <div className="flex items-center justify-center h-screen text-xl text-gray-600">Lade Dashboard...</div>;
+
 
   function getWinner(matchResults) {
     return [...matchResults].sort((a, b) => {
@@ -228,32 +239,102 @@ export default function Dashboard() {
 
       placementOverTime.push(dataPoint)
     })
+
+    
   })
 
+// Globale Leader-Statistik berechnen
+const leaderOccurrences = {};
+const leaderWins = {};
+
+results.forEach(result => {
+  const leaderName = result.leaders?.name;
+  if (!leaderName) return;
+
+  leaderOccurrences[leaderName] = (leaderOccurrences[leaderName] || 0) + 1;
+
+  const matchResults = results.filter(r => r.match_id === result.match_id);
+  const winner = getWinner(matchResults);
+  
+  const winnerLeaderName = winner?.leaders?.name;
+  if (winnerLeaderName && winnerLeaderName === leaderName) {
+    leaderWins[leaderName] = (leaderWins[leaderName] || 0) + 1;
+  }
+});
+
+const leaderStatsGlobal = Object.entries(leaderOccurrences).map(([name, count]) => ({
+  name,
+  count,
+  winrate: leaderWins[name] ? ((leaderWins[name] / count) * 100).toFixed(1) : '0.0'
+}));
+
+const top3Leaders = leaderModeGlobal === 'mostUsed'
+  ? [...leaderStatsGlobal].sort((a, b) => b.count - a.count).slice(0, 3)
+  : [...leaderStatsGlobal].sort((a, b) => parseFloat(b.winrate) - parseFloat(a.winrate)).slice(0, 3);
+
+
+
   return (
-    <div className="container mx-auto px-4"><br />
+    <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
+
+<h1 className="text-3xl font-bold mb-8 flex items-center gap-2">
+  <Trophy className="text-green-400" /> Dashboard
+</h1>
+
      {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
-<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
-    <p className="text-sm text-gray-500">Gesamt Partien</p>
-    <p className="text-3xl font-bold">{matchStats.total}</p>
-  </div>
-  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
-    <p className="text-sm text-gray-500">Dune Imperium</p>
-    <p className="text-3xl font-bold">{matchStats.dune}</p>
-  </div>
-  <div className="flex flex-col items-center justify-center p-4 border rounded-lg dark:bg-gray-800">
-    <p className="text-sm text-gray-500">Dune Imperium Uprising</p>
-    <p className="text-3xl font-bold">{matchStats.uprising}</p>
-  </div>
-</div>
+     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {[{label: 'Gesamt Partien', value: matchStats.total}, {label: 'Dune Imperium', value: matchStats.dune}, {label: 'Dune Imperium Uprising', value: matchStats.uprising}].map((item) => (
+          <div key={item.label} className="p-5 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
+            <div className="text-4xl font-bold text-green-500 mb-2">{item.value}</div>
+            <div className="text-gray-600">{item.label}</div>
+          </div>
+        ))}
+      </div>
 
 
 
-      <div className="mb-4 border rounded-lg rounded p-4 dark:bg-gray-800">
-        <h2 className="text-xl font-semibold mb-2">⏱ Durchschnittliche Rundenanzahl</h2>
-        <p><strong>Bei 3 Spielern:</strong> {avgRounds3}</p>
-        <p><strong>Bei 4 Spielern:</strong> {avgRounds4}</p>
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <Star className="text-yellow-400" /> Globale Top 3 Leader
+        </h2>
+        <button
+          onClick={() => setLeaderModeGlobal(leaderModeGlobal === 'mostUsed' ? 'bestWinrate' : 'mostUsed')}
+          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 text-white rounded flex items-center gap-2 text-sm"
+        >
+          {leaderModeGlobal === 'mostUsed' ? (
+            <><Shuffle className="w-4 h-4" /> Nach Siegquote anzeigen</>
+          ) : (
+            <><Star className="w-4 h-4" /> Meistgespielte anzeigen</>
+          )}
+        </button>
+      </div>
+
+      <table className="mt-4 w-full text-left">
+        <thead>
+          <tr className="bg-gray-800 text-white">
+            <th className="p-2">Leader</th>
+            <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Siegquote (%)'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {top3Leaders.map(leader => (
+            <tr key={leader.name} className="border-t">
+              <td className="p-2 font-medium">{leader.name}</td>
+              <td className="p-2 text-center">
+                {leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+
+      <div className="bg-white rounded-xl shadow-lg flex-wrap p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><TrendingUp className="text-blue-500" /> Durchschnittliche Rundenanzahl</h2>
+        <p><strong>3 Spieler:</strong> {avgRounds3}</p>
+        <p><strong>4 Spieler:</strong> {avgRounds4}</p>
       </div>
 {/*
       <h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
@@ -283,9 +364,9 @@ export default function Dashboard() {
       </div>
 */}
 
-<h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
 
-{/* Desktop-Tabelle: nur auf md und größer sichtbar */}
+
+{/* Desktop-Tabelle: nur auf md und größer sichtbar 
 <div className="overflow-x-auto mb-8 hidden md:block">
   <table className="min-w-full border border-collapse">
     <thead>
@@ -309,65 +390,91 @@ export default function Dashboard() {
       ))}
     </tbody>
   </table>
-</div>
+</div>*/}
+
+
+ <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Star className="text-yellow-400" /> Spieler-Statistik</h2>
+      <div className="overflow-auto mb-8 bg-white rounded-xl shadow-lg flex-wrap hidden md:block">
+        <table className="w-full text-left">
+          <thead className="bg-gray-100">
+            <tr>
+              {['Spieler', 'Partien', 'Siege', 'Ø Punkte', 'Winrate (%)'].map((head) => (
+                <th key={head} className="p-4 font-medium">{head}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {playerStats.map((stat) => (
+              <tr key={stat.player} className="border-t">
+                <td className="p-4 font-semibold">{stat.player}</td>
+                <td className="p-4">{stat.totalGames}</td>
+                <td className="p-4">{stat.wins}</td>
+                <td className="p-4">{stat.avgScore}</td>
+                <td className="p-4">{stat.winrate}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
 {/* Mobile-Version: als Cards */}
-<div className="space-y-4 md:hidden">
-  {playerStats.map(stat => (
-    <div
-      key={stat.player}
-      className="mb-2 border rounded-lg p-4 shadow-sm dark:bg-gray-800"
-    >
-      <div className="font-semibold text-lg mb-2">{stat.player}</div>
-      <div className="text-sm space-y-1">
-        <div><strong>Partien:</strong> {stat.totalGames}</div>
-        <div><strong>Siege:</strong> {stat.wins}</div>
-        <div><strong>Ø Punkte:</strong> {stat.avgScore}</div>
-        <div><strong>Winrate:</strong> {stat.winrate} %</div>
+<div className="space-y-4 flex-wrap md:hidden">
+        {playerStats.map(stat => (
+          <div key={stat.player} className="p-5 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
+            <div className="text-xl font-semibold text-gray-800 mb-2">{stat.player}</div>
+            <div className="text-sm text-gray-600">
+              <div><strong>Partien:</strong> {stat.totalGames}</div>
+              <div><strong>Siege:</strong> {stat.wins}</div>
+              <div><strong>Ø Punkte:</strong> {stat.avgScore}</div>
+              <div><strong>Winrate:</strong> {stat.winrate}%</div>
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
-  ))}
-</div>
-<br />
+  
 
-      <h2 className="text-xl font-semibold mb-2">Winrate-Verlauf</h2>
+
+
+      <h2 className="text-xl font-semibold mb-4">📈 Winrate-Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={winrateOverTime}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" />
           <YAxis domain={[0, 100]} tickFormatter={(tick) => `${tick}%`} />
           <Tooltip formatter={(value) => `${value}%`} />
-          <Legend />
+          <Legend iconType="plainline" />
           {players.map(player => (
-            <Line
-              key={player.id}
-              type="monotone"
-              dataKey={player.name}
-              stroke={playerColors[player.name] || '#000'}
-              strokeWidth={2}
-              dot={false}
-            />
+             <Line
+             key={player.id}
+             type="monotone"
+             dataKey={player.name}
+             stroke={playerColors[player.name] || '#000'}
+             strokeWidth={3}
+             strokeDasharray={playerLineStyles[player.name]?.strokeDasharray}
+             dot={false}
+           />
           ))}
         </LineChart>
       </ResponsiveContainer>
 
-      <h2 className="text-xl font-semibold mt-10 mb-2">⏳ Punkteentwicklung im Verlauf</h2>
+      <h2 className="text-xl font-semibold mt-10 mb-4">⏳ Punkteentwicklung im Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={avgScoreOverTime}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" />
           <YAxis />
           <Tooltip />
-          <Legend />
+          <Legend iconType="plainline" />
           {players.map(player => (
-            <Line
-              key={player.id + '-score'}
-              type="monotone"
-              dataKey={player.name}
-              stroke={playerColors[player.name] || '#000'}
-              strokeWidth={3}
-              dot={false}
-            />
+             <Line
+             key={player.id}
+             type="monotone"
+             dataKey={player.name}
+             stroke={playerColors[player.name] || '#000'}
+             strokeWidth={3}
+             strokeDasharray={playerLineStyles[player.name]?.strokeDasharray}
+             dot={false}
+           />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -379,104 +486,63 @@ export default function Dashboard() {
           <XAxis dataKey="date" />
           <YAxis reversed={true} allowDecimals={true} domain={[1, 4]} />
           <Tooltip />
-          <Legend />
+          <Legend iconType="plainline" />
           {players.map(player => (
-            <Line
-              key={player.id + '-placement'}
-              type="monotone"
-              dataKey={player.name}
-              stroke={playerColors[player.name] || '#000'}
-              strokeWidth={3}
-              dot={true}
-            />
+             <Line
+             key={player.id}
+             type="monotone"
+             dataKey={player.name}
+             stroke={playerColors[player.name] || '#000'}
+             strokeWidth={3}
+             strokeDasharray={playerLineStyles[player.name]?.strokeDasharray}
+             dot={playerLineStyles[player.name].dot}
+           />
           ))}
         </LineChart>
       </ResponsiveContainer>
-{/*
-      <div className="flex items-center justify-between mt-10 mb-2">
-        <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
-        <button
-          onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
-          className="bg-gray-200 px-3 py-1 rounded"
-        >
-          {leaderMode === 'mostUsed' ? 'Zeige beste Leader nach Punkten' : 'Zeige meistgespielte Leader'}
-        </button>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {leaderStats.map(stat => (
-          <div key={stat.player} className="border p-4 rounded shadow">
-            <h3 className="font-semibold mb-2">{stat.player}</h3>
-            <table className="w-full border border-collapse">
-              <thead>
-                <tr className="bg-gray-800">
-                  <th className="border p-2 text-left">Leader</th>
-                  <th className="border p-2 text-center">
-                    {leaderMode === 'mostUsed' ? 'Spiele' : 'Ø Punkte'}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {stat.topLeaders.map(leader => (
-                  <tr key={leader.name}>
-                    <td className="border p-2">{leader.name}</td>
-                    <td className="border p-2 text-center">
-                      {leaderMode === 'mostUsed' ? `${leader.count}` : `${leader.avgScore}`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
-      </div>*/}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-10 mb-2 gap-2">
+    
+      
+       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap mt-10 mb-4 gap-2 overflow-x-auto">
         <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
         <button
           onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
-          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
+          className=" hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm whitespace-nowrap text-white"
         >
           {leaderMode === 'mostUsed' ? (
-            <>
-              <Star className="w-4 h-4" />
-              Zeige beste Leader nach Punkten
-            </>
+            <><Star className="w-4 h-4 text-white" /> Zeige beste Leader nach Punkten</>
           ) : (
-            <>
-              <Shuffle className="w-4 h-4" />
-              Zeige meistgespielte Leader
-            </>
+            <><Shuffle className="w-4 h-4 text-white" /> Zeige meistgespielte Leader</>
           )}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-x-auto">
         {leaderStats.map(stat => (
-          <div
-            key={stat.player}
-            className="border p-4 rounded shadow max-h-80 overflow-y-auto dark:bg-gray-800"
-          >
-            <h3 className="font-semibold mb-2 text-base md:text-lg">{stat.player}</h3>
-            <table className="w-full table-fixed border border-collapse text-sm md:text-base">
-              <thead>
-                <tr className="bg-gray-800 text-white">
-                  <th className="border p-2 text-left w-2/3">Leader</th>
-                  <th className="border p-2 text-center w-1/3">
-                    {leaderMode === 'mostUsed' ? 'Spiele' : 'Ø Punkte'}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {stat.topLeaders.map(leader => (
-                  <tr key={leader.name}>
-                    <td className="border p-2 break-words whitespace-normal">{leader.name}</td>
-                    <td className="border p-2 text-center">
-                      {leaderMode === 'mostUsed' ? `${leader.count}` : `${leader.avgScore}`}
-                    </td>
+          <div key={stat.player} className="p-4 bg-white rounded-xl shadow-lg overflow-auto">
+            <h3 className="font-semibold mb-2 text-base md:text-lg text-gray-800">{stat.player}</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm md:text-base">
+                <thead>
+                  <tr className="bg-gray-800 text-white">
+                    <th className="p-2 text-left">Leader</th>
+                    <th className="p-2 text-center whitespace-nowrap">
+                      {leaderMode === 'mostUsed' ? 'Spiele' : 'Ø Punkte'}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {stat.topLeaders.map(leader => (
+                    <tr key={leader.name} className="border-t">
+                      <td className="p-2 break-words whitespace-normal">{leader.name}</td>
+                      <td className="p-2 text-center whitespace-nowrap">
+                        {leaderMode === 'mostUsed' ? `${leader.count}` : `${leader.avgScore}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ))}
       </div>
