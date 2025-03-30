@@ -481,7 +481,7 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
         ))}
       </div>
       <br />
-
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
       <h2 className="text-xl font-semibold mb-4">📈 Winrate-Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={winrateOverTime}>
@@ -503,7 +503,9 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
           ))}
         </LineChart>
       </ResponsiveContainer>
+    </div>
 
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
       <h2 className="text-xl font-semibold mt-10 mb-4">⏳ Punkteentwicklung im Verlauf</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={avgScoreOverTime}>
@@ -525,7 +527,8 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
           ))}
         </LineChart>
       </ResponsiveContainer>
-
+      </div>
+      
      {/* Übersicht Platzierungen pro Spieler 
      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
   <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -557,9 +560,9 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
   </div>
 </div>*/}
 
-<div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 mb-8">
+<div className="bg-white rounded-xl shadow-lg p-6 mb-8">
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-    <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-800 dark:text-gray-100">
+    <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-800 ">
       🥧 Platzierungen
     </h2>
     <div className="flex flex-wrap gap-2 justify-start sm:justify-end max-w-full">
@@ -590,7 +593,7 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
           cx="50%"
           cy="50%"
           outerRadius={100}
-          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+          label={window.innerWidth >= 640 ? ({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%` : false}
         >
           {placementPieData[selectedPlayerIndex].map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
