@@ -335,62 +335,62 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
   return (
     <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
 
-<h1 className="text-2xl font-bold mb-8 flex items-center gap-2">
-  <Trophy className="text-green-400 w-6 h-6" /> Dashboard
-</h1>
+      <h1 className="text-2xl font-bold mb-8 flex items-center gap-2">
+        <Trophy className="text-green-400 w-6 h-6" /> Dashboard
+      </h1>
 
-     {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
-     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {[{label: 'Gesamt Partien', value: matchStats.total}, {label: 'Dune Imperium', value: matchStats.dune}, {label: 'Dune Imperium Uprising', value: matchStats.uprising}].map((item) => (
-          <div key={item.label} className="p-5 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
-            <div className="text-4xl font-bold text-green-500 mb-2">{item.value}</div>
-            <div className="text-gray-600">{item.label}</div>
-          </div>
-        ))}
+          {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {[{label: 'Gesamt Partien', value: matchStats.total}, {label: 'Dune Imperium', value: matchStats.dune}, {label: 'Dune Imperium Uprising', value: matchStats.uprising}].map((item) => (
+                <div key={item.label} className="p-5 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
+                  <div className="text-4xl font-bold text-green-500 mb-2">{item.value}</div>
+                  <div className="text-gray-600">{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+
+           
+      <div className="bg-white flex-wrap rounded-xl shadow-lg p-6 mb-8 sm:flex-row sm:items-center sm:justify-between mt-10 mb-4 gap-2 overflow-x-auto">
+        <div className="flex flex-col sm:items-center justify-between">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Star className="text-yellow-400" /> Top 7 Leader
+          </h2>
+          <button
+            onClick={() => setLeaderModeGlobal(leaderModeGlobal === 'mostUsed' ? 'bestWinrate' : 'mostUsed')}
+            className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
+          >
+            {leaderModeGlobal === 'mostUsed' ? (
+              <><Shuffle className="w-4 h-4" /> Nach Winrate anzeigen</>
+            ) : (
+              <><Star className="w-4 h-4" /> Meistgespielte anzeigen</>
+            )}
+          </button>
+        </div>
+
+          <table className="mt-4 w-full text-left">
+            <thead>
+              <tr className="bg-gray-800 text-white">
+                <th className="p-2">Leader</th>
+                <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Winrate'}</th>
+                <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Winrate' : 'Spiele'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {top7Leaders.map(leader => (
+                <tr key={leader.name} className="border-t">
+                  <td className="p-2 font-medium">{leader.name}</td>
+                  <td className="p-2 text-center">
+                    {leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}
+                  </td>
+                  <td className="p-2 text-center">
+                    {leaderModeGlobal === 'mostUsed' ? `${leader.winrate}%` : leader.count}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
       </div>
-
-
-
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-  <div className="flex items-center justify-between">
-    <h2 className="text-xl font-semibold flex items-center gap-2">
-      <Star className="text-yellow-400" /> Globale Top 7 Leader
-    </h2>
-    <button
-      onClick={() => setLeaderModeGlobal(leaderModeGlobal === 'mostUsed' ? 'bestWinrate' : 'mostUsed')}
-      className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
-    >
-      {leaderModeGlobal === 'mostUsed' ? (
-        <><Shuffle className="w-4 h-4" /> Nach Siegquote anzeigen</>
-      ) : (
-        <><Star className="w-4 h-4" /> Meistgespielte anzeigen</>
-      )}
-    </button>
-  </div>
-
-  <table className="mt-4 w-full text-left">
-    <thead>
-      <tr className="bg-gray-800 text-white">
-        <th className="p-2">Leader</th>
-        <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Siegquote (%)'}</th>
-        <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Siegquote (%)' : 'Spiele'}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {top7Leaders.map(leader => (
-        <tr key={leader.name} className="border-t">
-          <td className="p-2 font-medium">{leader.name}</td>
-          <td className="p-2 text-center">
-            {leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}
-          </td>
-          <td className="p-2 text-center">
-            {leaderModeGlobal === 'mostUsed' ? `${leader.winrate}%` : leader.count}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
 
 
       <div className="bg-white rounded-xl shadow-lg flex-wrap p-6 mb-8">
@@ -519,9 +519,8 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
         </LineChart>
       </ResponsiveContainer>
     </div>
-
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-      <h2 className="text-xl font-semibold mt-10 mb-4">⏳ Punkteentwicklung</h2>
+      <h2 className="text-xl font-semibold mb-4">⏳ Punkteentwicklung</h2>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={avgScoreOverTime}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -589,7 +588,7 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
           className={`px-3 py-1 rounded text-sm border whitespace-nowrap transition
             ${
               selectedPlayerIndex === index
-                ? 'text-green-500 border-blue-500'
+                ? 'bg-green-500 text-white border-blue-500'
                 : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300'
             }`}
         >
@@ -627,6 +626,9 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
 
     {/* ZENTRIERTER Ø-Wert */}
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+      <div className="text-sm font-xs text-gray-600">
+          {placementsPerPlayer[selectedPlayerIndex]?.player}
+      </div>
       <div className="text-sm font-xs text-gray-600">
         Ø Platzierung
       </div>
