@@ -18,7 +18,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
         <nav className="mt-6">
           <ul>
             <li className="px-4 py-2 hover:bg-gray-700">
-              <Link to="/" className="flex items-center gap-3 " onClick={closeSidebar}>
+              <Link to="/dashboard" className="flex items-center gap-3 " onClick={closeSidebar}>
                 <Trophy className="w-5 h-5 text-white" /> Dashboard
               </Link>
             </li>
@@ -30,6 +30,11 @@ export default function Sidebar({ isOpen, closeSidebar }) {
             <li className="px-4 py-2 hover:bg-gray-700">
               <Link to="/matches" className="flex items-center gap-3" onClick={closeSidebar}>
                 <List className="w-5 h-5" /> Partien
+              </Link>
+            </li>
+            <li className="px-4 py-2 hover:bg-gray-700">
+              <Link to="/" className="flex items-center gap-3" onClick={closeSidebar}>
+                <List className="w-5 h-5" /> Login
               </Link>
             </li>
           </ul>

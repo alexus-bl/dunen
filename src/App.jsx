@@ -8,6 +8,8 @@ import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 
+ {/* MIT LOGIN-SYSTEM*/}
+
 function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
@@ -22,11 +24,12 @@ function App() {
           {/* Stelle sicher, dass hier KEINE flex-col und KEINE items-center Klassen stehen */}
           <main className="flex-1 overflow-x-auto p-4 sm:p-6 md:p-8">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Login />} />
               <Route path="/add-match" element={<AddMatch />} />
               <Route path="/matches" element={<Matches />} />
               <Route path="/edit-match/:matchId" element={<EditMatch />} />
-              <Route path="/login" element={<Login />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+            
             </Routes>
           </main>
         </div>
