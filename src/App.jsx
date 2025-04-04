@@ -6,6 +6,7 @@ import Matches from './pages/Matches';
 import EditMatch from './pages/EditMatch';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
+import Login from './pages/Login';
 
 function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -25,6 +26,7 @@ function App() {
               <Route path="/add-match" element={<AddMatch />} />
               <Route path="/matches" element={<Matches />} />
               <Route path="/edit-match/:matchId" element={<EditMatch />} />
+              <Route path="/login" element={<Login />} />
             </Routes>
           </main>
         </div>
