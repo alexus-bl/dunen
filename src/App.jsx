@@ -7,12 +7,13 @@ import EditMatch from './pages/EditMatch';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
-import { supabase } from './supabaseClient';
 import GroupOverview from './components/Group/GroupOverview';
+import { supabase } from './supabaseClient';
 
 function AppLayout({ children }) {
   const location = useLocation();
-  const isLoginPage = location.pathname === '/';
+  const noNavRoutes = ['/', '/groups']; // Keine Navbar und Sidebar hier anzeigen
+  const isNoNavRoute = noNavRoutes.includes(location.pathname);
 
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -23,8 +24,8 @@ function AppLayout({ children }) {
     });
   }, []);
 
-  if (isLoginPage || !user) {
-    // Hier liegt die entscheidende Änderung: Kein Flex, sondern normales Block-Layout!
+  if (isNoNavRoute || !user) {
+    // Ohne Navbar/Sidebar (Login und GroupOverview)
     return (
       <div className="min-h-screen w-full bg-gray-800">
         {children}
@@ -51,11 +52,11 @@ function App() {
       <AppLayout>
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/groups" element={<GroupOverview />} />
           <Route path="/add-match" element={<AddMatch />} />
           <Route path="/matches" element={<Matches />} />
           <Route path="/edit-match/:matchId" element={<EditMatch />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/groups" element={<GroupOverview />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>
