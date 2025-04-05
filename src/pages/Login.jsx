@@ -1,43 +1,65 @@
-import { supabase } from '../supabaseClient'
-import { useEffect, useState } from 'react'
-
+import { useState } from 'react';
+import { supabase } from '../supabaseClient';
 
 export default function Login() {
-  const handleLogin = async (provider) => {
-    await supabase.auth.signInWithOAuth({ provider })
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [message, setMessage] = useState('');
 
-    const [user, setUser] = useState(null)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user)
-      console.log('Aktueller Benutzer:', user)
-    })
-  }, [])
-  }
-
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setMessage(error.message);
+    } else {
+      navigate('/groups'); // Weiterleitung zur Gruppenübersicht
+    }
+  };
+  
+  const handleRegister = async () => {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setMessage(error.message);
+    } else {
+      // neuen Spieler in Tabelle players anlegen
+      await supabase.from('players').insert({ email: email, user_id: data.user.id });
+      setMessage('Bitte überprüfe deine E-Mails zur Bestätigung.');
+    }
+  };
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Login</h2>
-      <button
-        onClick={() => handleLogin('google')}
-        className="bg-blue-600 text-white px-4 py-2 rounded mb-2"
-      >
-        Login mit Google
-      </button>
-      {/*<button
-        onClick={() => handleLogin('apple')}
-        className="bg-black text-white px-4 py-2 rounded"
-      >
-        Login mit Apple
-      </button>*/}
-
-
-          
+    <div className="flex flex-col items-center justify-center h-screen bg-gray-800">
+      <div className="bg-gray-900 p-10 rounded shadow-lg w-full max-w-lg">
+        <h2 className="text-2xl font-bold text-white mb-6 text-center">
+          {isRegistering ? 'Registrieren' : 'Login'}
+        </h2>
+        <input
+          type="email"
+          placeholder="Email"
+          className="p-3 rounded w-full mb-4"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Passwort"
+          className="p-3 rounded w-full mb-4"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+        />
+        {message && <p className="text-red-500 text-center mb-4">{message}</p>}
+        <button
+          className="bg-green-600 hover:bg-green-500 text-white p-3 rounded w-full transition"
+          onClick={isRegistering ? handleRegister : handleLogin}
+        >
+          {isRegistering ? 'Registrieren' : 'Login'}
+        </button>
+        <p
+          className="mt-4 text-white text-center cursor-pointer underline"
+          onClick={() => setIsRegistering(!isRegistering)}
+        >
+          {isRegistering ? 'Schon einen Account? Login!' : 'Noch kein Account? Registrieren!'}
+        </p>
+      </div>
     </div>
-
-    
-  )
+  );
 }
-
-
