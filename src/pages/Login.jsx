@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -7,25 +8,27 @@ export default function Login() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState('');
 
+  const navigate = useNavigate(); // <--- wichtig!
+
   const handleLogin = async () => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setMessage(error.message);
     } else {
-      navigate('/groups'); // Weiterleitung zur Gruppenübersicht
+      navigate('/groups'); // Weiterleitung erfolgt hier!
     }
   };
-  
+
   const handleRegister = async () => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setMessage(error.message);
     } else {
-      // neuen Spieler in Tabelle players anlegen
-      await supabase.from('players').insert({ email: email, user_id: data.user.id });
-      setMessage('Bitte überprüfe deine E-Mails zur Bestätigung.');
+      await supabase.from('players').insert({ email, user_id: data.user.id });
+      navigate('/groups');
     }
   };
+
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-800">
       <div className="bg-gray-900 p-10 rounded shadow-lg w-full max-w-lg">
