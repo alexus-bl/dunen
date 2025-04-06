@@ -9,11 +9,14 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import GroupOverview from './components/Group/GroupOverview';
 import { supabase } from './supabaseClient';
+import ProfileSettings from './components/Profile/ProfileSettings';
 
 function AppLayout({ children }) {
   const location = useLocation();
-  const noNavRoutes = ['/', '/groups']; // Keine Navbar und Sidebar hier anzeigen
-  const isNoNavRoute = noNavRoutes.includes(location.pathname);
+  const noNavRoutes = ['/']; // Nur auf Login-Seite keine Navigation
+  const noSidebarRoutes = ['/', '/groups']; // Keine Sidebar bei Login und GroupOverview
+  const showNavbar = !noNavRoutes.includes(location.pathname);
+  const showSidebar = !noSidebarRoutes.includes(location.pathname);
 
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -24,26 +27,21 @@ function AppLayout({ children }) {
     });
   }, []);
 
-  if (isNoNavRoute || !user) {
-    // Ohne Navbar/Sidebar (Login und GroupOverview)
-    return (
-      <div className="min-h-screen w-full bg-gray-800">
-        {children}
-      </div>
-    );
+  if (!user && location.pathname !== '/') {
+    return <Navigate to="/" />;
   }
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen w-full bg-gray-800">
-      <Sidebar isOpen={isSidebarOpen} closeSidebar={() => setSidebarOpen(false)} />
-      <div className="flex flex-col flex-1 w-full">
-        <Navbar toggleSidebar={() => setSidebarOpen(prev => !prev)} />
-        <main className="flex-1 overflow-x-auto p-4 sm:p-6 md:p-8">
-          {children}
-        </main>
-      </div>
+    {showSidebar && <Sidebar isOpen={isSidebarOpen} closeSidebar={() => setSidebarOpen(false)} />}
+    <div className="flex flex-col flex-1 w-full">
+      {showNavbar && <Navbar toggleSidebar={() => setSidebarOpen(prev => !prev)} />}
+      <main className="flex-1 overflow-x-auto p-4 sm:p-6 md:p-8">
+        {children}
+      </main>
     </div>
-  );
+  </div>
+);
 }
 
 function App() {
@@ -57,6 +55,7 @@ function App() {
           <Route path="/matches" element={<Matches />} />
           <Route path="/edit-match/:matchId" element={<EditMatch />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile-settings" element={<ProfileSettings />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>

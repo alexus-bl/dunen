@@ -7,15 +7,16 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState('');
+  const [username, setUsername] = useState('');
 
-  const navigate = useNavigate(); // <--- wichtig!
+  const navigate = useNavigate();
 
   const handleLogin = async () => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setMessage(error.message);
     } else {
-      navigate('/groups'); // Weiterleitung erfolgt hier!
+      navigate('/groups');
     }
   };
 
@@ -23,9 +24,21 @@ export default function Login() {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setMessage(error.message);
-    } else {
-      await supabase.from('players').insert({ email, user_id: data.user.id });
-      navigate('/groups');
+      return;
+    }
+
+    if (data?.user) {
+      const { error: playerError } = await supabase.from('players').insert({
+        email,
+        user_id: data.user.id,
+        username,
+      });
+
+      if (playerError) {
+        setMessage('Fehler beim Erstellen des Spielerprofils: ' + playerError.message);
+      } else {
+        navigate('/groups');
+      }
     }
   };
 
@@ -35,27 +48,41 @@ export default function Login() {
         <h2 className="text-2xl font-bold text-white mb-6 text-center">
           {isRegistering ? 'Registrieren' : 'Login'}
         </h2>
+
+        {isRegistering && (
+          <input
+            type="text"
+            placeholder="Benutzername"
+            className="p-3 rounded w-full mb-4"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        )}
+
         <input
           type="email"
           placeholder="Email"
           className="p-3 rounded w-full mb-4"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
         />
         <input
           type="password"
           placeholder="Passwort"
           className="p-3 rounded w-full mb-4"
           value={password}
-          onChange={e => setPassword(e.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
         />
+
         {message && <p className="text-red-500 text-center mb-4">{message}</p>}
+
         <button
           className="bg-green-600 hover:bg-green-500 text-white p-3 rounded w-full transition"
           onClick={isRegistering ? handleRegister : handleLogin}
         >
           {isRegistering ? 'Registrieren' : 'Login'}
         </button>
+
         <p
           className="mt-4 text-white text-center cursor-pointer underline"
           onClick={() => setIsRegistering(!isRegistering)}
