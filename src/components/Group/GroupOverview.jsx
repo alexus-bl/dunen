@@ -7,24 +7,28 @@ export default function GroupOverview() {
 
   const fetchGroups = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-
+  
     const { data: player } = await supabase
       .from('players')
       .select('id')
       .eq('user_id', user.id)
       .single();
-
-    const { data, error } = await supabase
+  
+    // Erst Mitgliedschaften abrufen
+    const { data: memberships } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('player_id', player.id);
+  
+    const groupIds = memberships?.map(m => m.group_id) || [];
+  
+    // Jetzt Gruppen laden mit .in
+    const { data: groups, error } = await supabase
       .from('groups')
       .select('id, name')
-      .in('id', 
-        supabase
-          .from('group_members')
-          .select('group_id')
-          .eq('player_id', player.id)
-      );
-
-    if (!error) setGroups(data);
+      .in('id', groupIds);
+  
+    if (!error) setGroups(groups);
   };
 
   useEffect(() => {
