@@ -27,22 +27,23 @@ function AppLayout({ children }) {
     const initAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-
-      if (user) {
+  
+      if (user && user.confirmed_at) {
+        // Nur prüfen, ob players-Eintrag existiert, wenn User bestätigt ist
         const { data: player } = await supabase
           .from('players')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
-
+  
         if (!player && location.pathname !== '/complete-profile') {
           return window.location.replace('/complete-profile');
         }
       }
-
+  
       setProfileChecked(true);
     };
-
+  
     initAuth();
   }, [location.pathname]);
 
