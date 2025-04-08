@@ -18,12 +18,12 @@ export default function Login() {
     }
   };
 
-  const handleMagicLinkRegister = async () => {
-    const { error } = await supabase.auth.signInWithOtp({ email });
+  const handleRegister = async () => {
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setMessage(error.message);
     } else {
-      setMessage('Bitte prüfe deine E-Mails und klicke auf den Bestätigungslink, um dein Profil zu vervollständigen.');
+      setMessage('Registrierung erfolgreich! Bitte bestätige deine E-Mail, bevor du dich einloggst.');
     }
   };
 
@@ -42,15 +42,13 @@ export default function Login() {
           onChange={e => setEmail(e.target.value)}
         />
 
-        {!isRegistering && (
-          <input
-            type="password"
-            placeholder="Passwort"
-            className="p-3 rounded w-full mb-4"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-          />
-        )}
+        <input
+          type="password"
+          placeholder="Passwort"
+          className="p-3 rounded w-full mb-4"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+        />
 
         {message && <p className="text-white text-center mb-4">{message}</p>}
 
@@ -73,9 +71,9 @@ export default function Login() {
           <>
             <button
               className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded w-full transition"
-              onClick={handleMagicLinkRegister}
+              onClick={handleRegister}
             >
-              Registrierung starten (per Magic Link)
+              Registrieren
             </button>
             <p
               className="mt-4 text-white text-center cursor-pointer underline"
