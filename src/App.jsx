@@ -14,7 +14,7 @@ import ProfileSettings from './components/Profile/ProfileSettings';
 
 function AppLayout({ children }) {
   const location = useLocation();
-  const noNavRoutes = ['/'];
+  const noNavRoutes = ['/', '/groups'];
   const noSidebarRoutes = ['/', '/groups'];
   const showNavbar = !noNavRoutes.includes(location.pathname);
   const showSidebar = !noSidebarRoutes.includes(location.pathname);

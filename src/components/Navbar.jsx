@@ -18,8 +18,9 @@ export default function Navbar({ toggleSidebar }) {
 
   {/* Icons rechts */}
   <div className="flex items-center gap-4">
-    <button className="relative p-2 bg-white text-green-500 rounded-full hover:bg-green-400 hover:text-white transition">
-      <Bell className="w-5 h-5" />
+    <button onClick={() => navigate('/groups')}
+      className="relative p-2 bg-white text-green-500 rounded-full hover:bg-green-400 hover:text-white transition">
+      <LayoutDashboard className="w-5 h-5" />
       <span className="absolute top-0 right-0 bg-red-500 rounded-full w-2 h-2"></span>
     </button>
     <button
