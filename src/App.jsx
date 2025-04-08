@@ -11,7 +11,6 @@ import GroupOverview from './components/Group/GroupOverview';
 import { supabase } from './supabaseClient';
 import ProfileSettings from './components/Profile/ProfileSettings';
 
-
 function AppLayout({ children }) {
   const location = useLocation();
   const noNavRoutes = ['/'];
@@ -25,9 +24,12 @@ function AppLayout({ children }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user || null;
       setUser(user);
-  
+
       if (user && user.confirmed_at) {
         // Prüfe, ob Spieler bereits in Tabelle ist
         const { data: player, error } = await supabase
@@ -35,20 +37,23 @@ function AppLayout({ children }) {
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
-  
+
         if (!player && !error) {
-          // Spieler existiert noch nicht → jetzt automatisch einfügen
-          await supabase.from('players').insert({
+          const { error: insertError } = await supabase.from('players').insert({
             user_id: user.id,
             email: user.email,
             username: user.user_metadata?.username || user.email.split('@')[0], // fallback
           });
+
+          if (insertError) {
+            console.error('Fehler beim automatischen Spieler-Insert:', insertError.message);
+          }
         }
       }
-  
+
       setProfileChecked(true);
     };
-  
+
     initAuth();
   }, [location.pathname]);
 
@@ -70,6 +75,7 @@ function AppLayout({ children }) {
     </div>
   );
 }
+
 function App() {
   return (
     <BrowserRouter>
@@ -82,8 +88,7 @@ function App() {
           <Route path="/edit-match/:matchId" element={<EditMatch />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile-settings" element={<ProfileSettings />} />
-          
-          <Route path="*" element={<Navigate to="/" />} /> 
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>
