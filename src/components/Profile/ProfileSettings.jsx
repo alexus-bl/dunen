@@ -91,7 +91,7 @@ export default function ProfileSettings() {
         ) : (
           <div>
             <input
-              className="p-3 rounded w-full text-gray-800 mb-2"
+              className="p-3 rounded w-full text-white mb-2"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
@@ -110,7 +110,7 @@ export default function ProfileSettings() {
         <input
           type="password"
           placeholder="Neues Passwort eingeben"
-          className="p-3 rounded w-full text-gray-800 mb-2"
+          className="p-3 rounded w-full text-white mb-2"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
         />
