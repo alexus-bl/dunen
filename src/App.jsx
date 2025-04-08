@@ -29,14 +29,21 @@ function AppLayout({ children }) {
       setUser(user);
   
       if (user && user.confirmed_at) {
-        // Nur prüfen, ob players-Eintrag existiert, wenn User bestätigt ist
-        const { data: player } = await supabase
+        // Prüfe, ob Spieler bereits in Tabelle ist
+        const { data: player, error } = await supabase
           .from('players')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
   
-        
+        if (!player && !error) {
+          // Spieler existiert noch nicht → jetzt automatisch einfügen
+          await supabase.from('players').insert({
+            user_id: user.id,
+            email: user.email,
+            username: user.user_metadata?.username || user.email.split('@')[0], // fallback
+          });
+        }
       }
   
       setProfileChecked(true);
