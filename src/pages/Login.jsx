@@ -20,6 +20,11 @@ export default function Login() {
   };
 
   const handleRegister = async () => {
+    if (!email || !password || !username) {
+      setMessage('Bitte gib E-Mail, Passwort und Benutzernamen an.');
+      return;
+    }
+
     // Check if user already exists
     const { data: existingUser, error: existingError } = await supabase.auth.signInWithPassword({ email, password });
     if (!existingError && existingUser) {
@@ -69,7 +74,7 @@ export default function Login() {
             placeholder="Benutzername"
             className="p-3 rounded w-full mb-4"
             value={username}
-            onChange={e => setUsername(e.target.value)}
+            onChange={(e) => setUsername(e.target.value)}
           />
         )}
 

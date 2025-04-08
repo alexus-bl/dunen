@@ -10,12 +10,12 @@ import Login from './pages/Login';
 import GroupOverview from './components/Group/GroupOverview';
 import { supabase } from './supabaseClient';
 import ProfileSettings from './components/Profile/ProfileSettings';
-import CompleteProfile from './components/Profile/CompleteProfile';
+
 
 function AppLayout({ children }) {
   const location = useLocation();
-  const noNavRoutes = ['/', '/complete-profile'];
-  const noSidebarRoutes = ['/', '/groups', '/complete-profile'];
+  const noNavRoutes = ['/'];
+  const noSidebarRoutes = ['/', '/groups'];
   const showNavbar = !noNavRoutes.includes(location.pathname);
   const showSidebar = !noSidebarRoutes.includes(location.pathname);
 
@@ -36,9 +36,7 @@ function AppLayout({ children }) {
           .eq('user_id', user.id)
           .maybeSingle();
   
-        if (!player && location.pathname !== '/complete-profile') {
-          return window.location.replace('/complete-profile');
-        }
+        
       }
   
       setProfileChecked(true);
@@ -77,7 +75,7 @@ function App() {
           <Route path="/edit-match/:matchId" element={<EditMatch />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile-settings" element={<ProfileSettings />} />
-          <Route path="/complete-profile" element={<CompleteProfile />} />
+          
           <Route path="*" element={<Navigate to="/" />} /> 
         </Routes>
       </AppLayout>
