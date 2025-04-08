@@ -7,10 +7,22 @@ export default function GroupOverview() {
 
   const fetchGroups = async () => {
     const { data: { user } } = await supabase.auth.getUser();
+
+    const { data: player } = await supabase
+      .from('players')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
     const { data, error } = await supabase
       .from('groups')
-      .select('*')
-      .contains('members', [user.id]); // Annahme: Spalte "members" enthält User-IDs (Array)
+      .select('id, name')
+      .in('id', 
+        supabase
+          .from('group_members')
+          .select('group_id')
+          .eq('player_id', player.id)
+      );
 
     if (!error) setGroups(data);
   };
@@ -21,7 +33,37 @@ export default function GroupOverview() {
 
   const createGroup = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('groups').insert({ name: newGroupName, members: [user.id] });
+
+    const { data: player } = await supabase
+      .from('players')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    // 1. Neue Gruppe erstellen
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .insert({ name: newGroupName })
+      .select()
+      .single();
+
+    if (groupError) {
+      console.error('Fehler beim Erstellen der Gruppe:', groupError);
+      return;
+    }
+
+    // 2. Ersteller als Admin hinzufügen
+    const { error: memberError } = await supabase.from('group_members').insert({
+      group_id: group.id,
+      player_id: player.id,
+      role: 'admin'
+    });
+
+    if (memberError) {
+      console.error('Fehler beim Hinzufügen als Admin:', memberError);
+      return;
+    }
+
     setNewGroupName('');
     fetchGroups();
   };
@@ -41,7 +83,7 @@ export default function GroupOverview() {
       <div className="mt-8">
         <h3 className="text-xl font-semibold">Neue Gruppe erstellen</h3>
         <input
-          className="p-2 rounded w-full my-2 text-gray-800"
+          className="p-2 rounded w-full my-2 text-white"
           placeholder="Name der Gruppe"
           value={newGroupName}
           onChange={e => setNewGroupName(e.target.value)}
