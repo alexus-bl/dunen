@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
@@ -19,10 +20,22 @@ export default function Login() {
   };
 
   const handleRegister = async () => {
+    // Check if user already exists
+    const { data: existingUser, error: existingError } = await supabase.auth.signInWithPassword({ email, password });
+    if (!existingError && existingUser) {
+      setMessage('Ein Konto mit dieser E-Mail-Adresse existiert bereits. Bitte logge dich ein.');
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setMessage(error.message);
-    } else {
+    } else if (data?.user) {
+      await supabase.from('players').insert({
+        user_id: data.user.id,
+        email: data.user.email,
+        username,
+      });
       setMessage('Registrierung erfolgreich! Bitte bestätige deine E-Mail, bevor du dich einloggst.');
     }
   };
@@ -49,6 +62,16 @@ export default function Login() {
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
+
+        {isRegistering && (
+          <input
+            type="text"
+            placeholder="Benutzername"
+            className="p-3 rounded w-full mb-4"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+          />
+        )}
 
         {message && <p className="text-white text-center mb-4">{message}</p>}
 
