@@ -6,29 +6,46 @@ export default function GroupOverview() {
   const [newGroupName, setNewGroupName] = useState('');
 
   const fetchGroups = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-  
-    const { data: player } = await supabase
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('Fehler beim Abrufen des Benutzers:', userError?.message);
+      return;
+    }
+
+    const { data: player, error: playerError } = await supabase
       .from('players')
       .select('id')
       .eq('user_id', user.id)
-      .single();
-  
-    // Erst Mitgliedschaften abrufen
-    const { data: memberships } = await supabase
+      .maybeSingle();
+
+    if (playerError || !player) {
+      console.error('Spielerprofil nicht gefunden oder Fehler:', playerError?.message);
+      return;
+    }
+
+    const { data: memberships, error: memberError } = await supabase
       .from('group_members')
       .select('group_id')
       .eq('player_id', player.id);
-  
+
+    if (memberError) {
+      console.error('Fehler beim Laden der Mitgliedschaften:', memberError.message);
+      return;
+    }
+
     const groupIds = memberships?.map(m => m.group_id) || [];
-  
-    // Jetzt Gruppen laden mit .in
-    const { data: groups, error } = await supabase
+
+    const { data: groupList, error: groupError } = await supabase
       .from('groups')
       .select('id, name')
       .in('id', groupIds);
-  
-    if (!error) setGroups(groups);
+
+    if (groupError) {
+      console.error('Fehler beim Laden der Gruppen:', groupError.message);
+      return;
+    }
+
+    setGroups(groupList);
   };
 
   useEffect(() => {
@@ -36,27 +53,34 @@ export default function GroupOverview() {
   }, []);
 
   const createGroup = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { data: player } = await supabase
-      .from('players')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    // 1. Neue Gruppe erstellen
-    const { data: group, error: groupError } = await supabase
-      .from('groups')
-      .insert({ name: newGroupName })
-      .select()
-      .single();
-
-    if (groupError) {
-      console.error('Fehler beim Erstellen der Gruppe:', groupError);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('Benutzer nicht gefunden:', userError?.message);
       return;
     }
 
-    // 2. Ersteller als Admin hinzufügen
+    const { data: player, error: playerError } = await supabase
+      .from('players')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (playerError || !player) {
+      console.error('Spielerprofil nicht gefunden oder Fehler:', playerError?.message);
+      return;
+    }
+
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .insert({ name: newGroupName, created_by: user.id })   
+      .select()
+      .single();
+
+    if (groupError || !group) {
+      console.error('Fehler beim Erstellen der Gruppe:', groupError?.message);
+      return;
+    }
+
     const { error: memberError } = await supabase.from('group_members').insert({
       group_id: group.id,
       player_id: player.id,
@@ -64,7 +88,7 @@ export default function GroupOverview() {
     });
 
     if (memberError) {
-      console.error('Fehler beim Hinzufügen als Admin:', memberError);
+      console.error('Fehler beim Hinzufügen als Admin:', memberError.message);
       return;
     }
 
@@ -87,7 +111,7 @@ export default function GroupOverview() {
       <div className="mt-8">
         <h3 className="text-xl font-semibold">Neue Gruppe erstellen</h3>
         <input
-          className="p-2 rounded w-full my-2 text-white"
+          className="p-2 rounded w-full my-2 text-white bg-gray-700"
           placeholder="Name der Gruppe"
           value={newGroupName}
           onChange={e => setNewGroupName(e.target.value)}

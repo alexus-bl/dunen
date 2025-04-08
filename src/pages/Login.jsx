@@ -40,7 +40,9 @@ export default function Login() {
         user_id: data.user.id,
         email: data.user.email,
         username,
-      });
+        
+      })
+      .select();
       setMessage('Registrierung erfolgreich! Bitte bestätige deine E-Mail, bevor du dich einloggst.');
     }
   };
