@@ -36,19 +36,13 @@ useEffect(() => {
 
   {/* Icons rechts */}
 
+
   <div className="flex items-center gap-4">
+
   {userEmail && (
     <span className="text-sm text-white hidden sm:block">{userEmail}</span>
   )}
-  <button
-    onClick={() => navigate('/profile-settings')}
-    className="p-2 bg-white text-green-500 rounded-full hover:bg-green-400 hover:text-white transition"
-  >
-    <UserCircle className="w-5 h-5" />
-  </button>
-</div>
 
-  <div className="flex items-center gap-4">
     <button onClick={() => navigate('/groups')}
       className="relative p-2 bg-white text-green-500 rounded-full hover:bg-green-400 hover:text-white transition">
       <LayoutDashboard className="w-5 h-5" />

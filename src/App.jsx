@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import GroupOverview from './components/Group/GroupOverview';
 import { supabase } from './supabaseClient';
 import ProfileSettings from './components/Profile/ProfileSettings';
+import InvitationPage from './pages/InvitationPage'; 
 
 function AppLayout({ children }) {
   const location = useLocation();
@@ -89,6 +90,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile-settings" element={<ProfileSettings />} />
           <Route path="*" element={<Navigate to="/" />} />
+          <Route path="/invite/:id" element={<InvitationPage />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>
