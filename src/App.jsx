@@ -1,3 +1,4 @@
+// App.jsx
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
@@ -10,55 +11,30 @@ import Login from './pages/Login';
 import GroupOverview from './components/Group/GroupOverview';
 import { supabase } from './supabaseClient';
 import ProfileSettings from './components/Profile/ProfileSettings';
-import InvitationPage from './pages/InvitationPage'; 
+import InvitationPage from './pages/InvitationPage';
 
+// ---------- Route Guards ----------
+function RequireAuth({ user, ready, children }) {
+  if (!ready) return null; // oder Loading-Spinner
+  if (!user) return <Navigate to="/" replace />;
+  return children;
+}
+
+function PublicOnly({ user, ready, children }) {
+  if (!ready) return null;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+// ---------- Layout (Navbar/Sidebar je nach Route) ----------
 function AppLayout({ children }) {
   const location = useLocation();
   const noNavRoutes = ['/'];
-  const noSidebarRoutes = ['/', '/groups'];
+  const noSidebarRoutes = ['/', '/groups', '/invite', '/invite/:id'];
   const showNavbar = !noNavRoutes.includes(location.pathname);
   const showSidebar = !noSidebarRoutes.includes(location.pathname);
 
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState(null);
-  const [profileChecked, setProfileChecked] = useState(false);
-
-  useEffect(() => {
-    const initAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user || null;
-      setUser(user);
-
-      if (user && user.confirmed_at) {
-        // Prüfe, ob Spieler bereits in Tabelle ist
-        const { data: player, error } = await supabase
-          .from('players')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (!player && !error) {
-          const { error: insertError } = await supabase.from('players').insert({
-            user_id: user.id,
-            email: user.email,
-            username: user.user_metadata?.username || user.email.split('@')[0], // fallback
-          });
-
-          if (insertError) {
-            console.error('Fehler beim automatischen Spieler-Insert:', insertError.message);
-          }
-        }
-      }
-
-      setProfileChecked(true);
-    };
-
-    initAuth();
-  }, [location.pathname]);
-
-  if (!profileChecked) return null;
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen w-full bg-gray-800">
@@ -77,24 +53,131 @@ function AppLayout({ children }) {
   );
 }
 
-function App() {
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [profileChecked, setProfileChecked] = useState(false);
+
+  useEffect(() => {
+    let subscription;
+
+    const initAuth = async () => {
+      // 1) aktuelle Session laden
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      // 2) Falls verifiziert: Player-Record sicherstellen
+      if (currentUser && currentUser.confirmed_at) {
+        const { data: player, error } = await supabase
+          .from('players')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+        if (!player && !error) {
+          const username =
+            currentUser.user_metadata?.username ||
+            currentUser.email?.split('@')[0] ||
+            `user_${currentUser.id.slice(0, 6)}`;
+
+          const { error: insertError } = await supabase.from('players').insert({
+            user_id: currentUser.id,
+            email: currentUser.email,
+            username,
+          });
+
+          if (insertError) {
+            console.error('Fehler beim automatischen Spieler-Insert:', insertError.message);
+          }
+        }
+      }
+
+      setProfileChecked(true);
+
+      // 3) Auth-Änderungen (Login/Logout/OAuth-Callback) beobachten
+      subscription = supabase.auth.onAuthStateChange((_event, newSession) => {
+        setUser(newSession?.user ?? null);
+      }).data.subscription;
+    };
+
+    initAuth();
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <AppLayout>
         <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/groups" element={<GroupOverview />} />
-          <Route path="/add-match" element={<AddMatch />} />
-          <Route path="/matches" element={<Matches />} />
-          <Route path="/edit-match/:matchId" element={<EditMatch />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/profile-settings" element={<ProfileSettings />} />
-          <Route path="*" element={<Navigate to="/" />} />
+          {/* Login (nur für nicht eingeloggte Nutzer) */}
+          <Route
+            path="/"
+            element={
+              <PublicOnly user={user} ready={profileChecked}>
+                <Login />
+              </PublicOnly>
+            }
+          />
+
+          {/* Einladungsseite – ggf. public (Token-basiert) */}
           <Route path="/invite/:id" element={<InvitationPage />} />
+
+          {/* Geschützte Routen */}
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth user={user} ready={profileChecked}>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/groups"
+            element={
+              <RequireAuth user={user} ready={profileChecked}>
+                <GroupOverview />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/add-match"
+            element={
+              <RequireAuth user={user} ready={profileChecked}>
+                <AddMatch />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/matches"
+            element={
+              <RequireAuth user={user} ready={profileChecked}>
+                <Matches />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/edit-match/:matchId"
+            element={
+              <RequireAuth user={user} ready={profileChecked}>
+                <EditMatch />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/profile-settings"
+            element={
+              <RequireAuth user={user} ready={profileChecked}>
+                <ProfileSettings />
+              </RequireAuth>
+            }
+          />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>
   );
 }
-
-export default App;
