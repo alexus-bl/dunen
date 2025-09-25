@@ -32,11 +32,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 <List className="w-5 h-5" /> Partien
               </Link>
             </li>
-            <li className="px-4 py-2 hover:bg-gray-700">
-              <Link to="/" className="flex items-center gap-3" onClick={closeSidebar}>
-                <List className="w-5 h-5" /> Login
-              </Link>
-            </li>
+           
           </ul>
         </nav>
       </aside>
