@@ -83,7 +83,7 @@ button:focus-visible {
 /* Globaler, wirklich durchgehender Hintergrund */
 @layer base {
   html, body, #root {
-    @apply bg-[#0B245A] text-white;
+    @apply bg-gray-800 text-white;
     min-height: 100%;
   }
   body, #root {
