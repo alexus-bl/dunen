@@ -49,7 +49,14 @@ export default function Login() {
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-800">
-      <div className="bg-gray-900 p-10 rounded shadow-lg w-full max-w-lg">
+    <div className="bg-gray-900 p-10 rounded shadow-lg w-full max-w-lg flex flex-col items-center">
+      
+      {/* App-Logo */}
+      <img 
+        src="/images/Dunen_Logs_AppLogo_alpha.png" 
+        alt="Dunen Logs Logo" 
+        className="mb-6 w-40 h-auto"
+      />
         <h2 className="text-2xl font-bold text-white mb-6 text-center">
           {isRegistering ? 'Registrieren' : 'Login'}
         </h2>
@@ -57,7 +64,7 @@ export default function Login() {
         <input
           type="email"
           placeholder="Email"
-          className="p-3 rounded w-full mb-4"
+          className="bg-white p-3 rounded w-full mb-4"
           value={email}
           onChange={e => setEmail(e.target.value)}
         />
@@ -65,7 +72,7 @@ export default function Login() {
         <input
           type="password"
           placeholder="Passwort"
-          className="p-3 rounded w-full mb-4"
+          className="bg-white p-3 rounded w-full mb-4"
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
@@ -74,7 +81,7 @@ export default function Login() {
           <input
             type="text"
             placeholder="Benutzername"
-            className="p-3 rounded w-full mb-4"
+            className="bg-white p-3 rounded w-full mb-4"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />

@@ -1,356 +1,394 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../supabaseClient'
-import { Trophy, TrendingUp, Shuffle, Star } from 'lucide-react';
+// src/pages/Dashboard.jsx
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import { Trophy, TrendingUp, Shuffle, Star, ChevronDown } from 'lucide-react';
 import {
-  PieChart, Pie, Cell,LineChart, Line, XAxis, YAxis, CartesianGrid,
+  PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
-} from 'recharts'
+} from 'recharts';
+import { useGroup } from '../context/GroupContext';
 
+// Erlaubte Spielerfarben
+const ALLOWED_COLORS = ['#3B82F6', '#10B981', '#EF4444', '#FFBF00'];
 
-const playerColors = {
-  Janosch: '#3B82F6',
-  Hubertus: '#10B981',
-  Casjen: '#EF4444',
-  Alex: '#FFBF00'
+// Fallback-Farbe (deterministisch), falls kein favorite_color gesetzt ist
+function colorFallbackFor(nameOrId) {
+  let hash = 0;
+  const s = String(nameOrId || '');
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return ALLOWED_COLORS[hash % ALLOWED_COLORS.length];
 }
 
-const playerLineStyles = {
-  Janosch: { strokeDasharray: "5 5", dot: { strokeWidth: 2, r: 4, fill: "#3B82F6" } },
-  Hubertus: { strokeDasharray: "3 3", dot: { strokeWidth: 2, r: 4, fill: "#10B981" }  },
-  Casjen: { strokeDasharray: "", dot: { strokeWidth: 2, r: 4, fill: "#EF4444" } },
-  Alex: { strokeDasharray: "2 2", dot: { strokeWidth: 2, r: 4, fill: "#FFBF00"} },
-};
+// Optionale Linienmuster (zur Unterscheidung), unabhängig vom Namen
+function lineStyleFor(player) {
+  const key = String(player?.id ?? player?.username ?? '');
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  const patterns = ['', '5 5', '3 3', '2 2']; // rotiert deterministisch
+  return { strokeDasharray: patterns[hash % patterns.length] };
+}
 
 export default function Dashboard() {
-  const [results, setResults] = useState([])
-  const [players, setPlayers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [leaderMode, setLeaderMode] = useState('mostUsed')
-  const [matchStats, setMatchStats] = useState({ total: 0, dune: 0, uprising: 0 })
+
+  const { groupId, setGroupId } = useGroup();
+  const [groupName, setGroupName] = useState('');
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(null);
+
+  const [results, setResults] = useState([]);
+  const [players, setPlayers] = useState([]);
+
+  const [leaderMode, setLeaderMode] = useState('mostUsed');
   const [leaderModeGlobal, setLeaderModeGlobal] = useState('mostUsed');
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
 
+  // Pro-Spieler Expand/Collapse
+  const [expandedPlayers, setExpandedPlayers] = useState(new Set());
+  const togglePlayerExpanded = (playerName) => {
+    setExpandedPlayers(prev => {
+      const next = new Set(prev);
+      if (next.has(playerName)) next.delete(playerName);
+      else next.add(playerName);
+      return next;
+    });
+  };
 
+  const [matchStats, setMatchStats] = useState({ total: 0, dune: 0, uprising: 0 });
 
   useEffect(() => {
-    fetchData()
-    fetchMatchStats()
-  }, [])
-  
-  async function fetchMatchStats() {
-    const { data, error } = await supabase
-      .from('matches')
-      .select('id, game_id, games (id, name)')
-  
-    if (error) {
-      console.error('Fehler beim Laden der Matches:', error)
-      return
+    if (!groupId) {
+      try {
+        const last = localStorage.getItem('lastGroupId');
+        if (last) setGroupId(last);
+      } catch {}
     }
-  
-    const total = data.length
-    const dune = data.filter(m => m.games?.name === 'Dune Imperium').length
-    const uprising = data.filter(m => m.games?.name === 'Dune Imperium Uprising').length
-  
-    setMatchStats({ total, dune, uprising })
-    
-  }
+  }, [groupId, setGroupId]);
 
-  async function fetchData() {
-    const { data, error } = await supabase
-      .from('results')
-      .select(`
-        id,
-        match_id,
-        score,
-        spice,
-        solari,
-        water,
-        leader_id,
-        players (id, name),
-        leaders (id, name),
-        matches (id, date, played_rounds)
-      `)
+  // Aktiven Gruppennamen laden
+  useEffect(() => {
+    let cancelled = false;
+    const fetchGroupName = async () => {
+      if (!groupId) { setGroupName(''); return; }
+      const { data, error } = await supabase
+        .from('groups')
+        .select('name')
+        .eq('id', groupId)
+        .single();
 
-    if (error) {
-      console.error('Fehler beim Laden:', error)
-      return
+      if (!cancelled) {
+        if (error) {
+          console.error('[Dashboard] groups error:', error.message);
+          setGroupName('');
+        } else {
+          setGroupName(data?.name || '');
+        }
+      }
+    };
+    fetchGroupName();
+    return () => { cancelled = true; };
+  }, [groupId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchMatchStats = async () => {
+      if (!groupId) return;
+      const { data, error, status } = await supabase
+        .from('matches')
+        .select('id, group_id, game_id, games ( id, name )')
+        .eq('group_id', groupId);
+      if (error) {
+        console.error('[Dashboard] matches error:', status, error.message);
+        return;
+      }
+      const rows = data || [];
+      const total = rows.length;
+      const dune = rows.filter(m => m.games?.name === 'Dune Imperium').length;
+      const uprising = rows.filter(m => m.games?.name === 'Dune Imperium Uprising').length;
+      setMatchStats({ total, dune, uprising });
+    };
+
+    const fetchData = async () => {
+      setLoading(true);
+      setErr(null);
+      try {
+        if (!groupId) {
+          setLoading(false);
+          navigate('/groups');
+          return;
+        }
+
+        const { data, error, status } = await supabase
+          .from('results')
+          .select(`
+            id,
+            match_id,
+            score,
+            spice,
+            solari,
+            water,
+            leader_id,
+            players ( id, username, favorite_color ),
+            leaders ( id, name ),
+            matches ( id, date, played_rounds, group_id )
+          `)
+          .eq('matches.group_id', groupId);
+
+        if (error) {
+          console.error('[Dashboard] results error:', status, error.message);
+          throw new Error(error.message);
+        }
+
+        const filtered = (data || []).filter(r =>
+          r?.matches?.group_id === groupId &&
+          r?.players?.id != null &&
+          r?.matches?.id != null
+        );
+
+        setResults(filtered);
+
+        const uniquePlayers = [
+          ...new Map(
+            filtered
+              .filter(r => r.players && r.players.id != null)
+              .map(r => [r.players.id, {
+                id: r.players.id,
+                username: r.players.username,
+                favorite_color: r.players.favorite_color
+              }])
+          ).values()
+        ];
+        setPlayers(uniquePlayers);
+      } catch (e) {
+        console.error('[Dashboard] load error:', e);
+        setErr(e.message || 'Unbekannter Fehler');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    if (groupId) {
+      fetchData();
+      fetchMatchStats();
     }
 
-    setResults(data)
-
-   
-
-    const uniquePlayers = [
-      ...new Map(data.map(r => [r.players.id, r.players])).values()
-    ]
-    setPlayers(uniquePlayers)
-    setLoading(false)
-  }
+    return () => { cancelled = true; };
+  }, [groupId, navigate]);
 
   if (loading) return <div className="flex items-center justify-center h-screen text-xl text-gray-600">Lade Dashboard...</div>;
+  if (err)     return <div className="p-4 text-red-400">Fehler beim Laden des Dashboards: {err}</div>;
 
+  // ---------- Helpers & abgeleitete Daten ----------
+  const validResults = results.filter(r => r && r.players?.id != null);
+  const uniqueMatchIds = [...new Set(validResults.map(r => r.match_id))];
+
+  function safeNum(n) { return typeof n === 'number' ? n : 0; }
 
   function getWinner(matchResults) {
-    return [...matchResults].sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
-      if (b.spice !== a.spice) return b.spice - a.spice
-      if (b.solari !== a.solari) return b.solari - a.solari
-      return b.water - a.water
-    })[0]
+    const arr = (matchResults || []).filter(x => x && x.players?.id != null);
+    if (!arr.length) return null;
+    return [...arr].sort((a, b) => {
+      if (safeNum(b.score) !== safeNum(a.score)) return safeNum(b.score) - safeNum(a.score);
+      if (safeNum(b.spice) !== safeNum(a.spice)) return safeNum(b.spice) - safeNum(a.spice);
+      if (safeNum(b.solari) !== safeNum(a.solari)) return safeNum(b.solari) - safeNum(a.solari);
+      return safeNum(b.water) - safeNum(a.water);
+    })[0] || null;
   }
 
-  const uniqueMatchIds = [...new Set(results.map(r => r.match_id))]
-
   const playerStats = players.map(player => {
-    const playerResults = results.filter(r => r.players.id === player.id)
-    const totalGames = playerResults.length
+    const playerResults = validResults.filter(r => r.players.id === player.id);
+    const totalGames = playerResults.length;
 
     const wins = uniqueMatchIds.reduce((acc, matchId) => {
-      const matchResults = results.filter(r => r.match_id === matchId)
-      const winner = getWinner(matchResults)
-      return winner.players.id === player.id ? acc + 1 : acc
-    }, 0)
+      const matchResults = validResults.filter(r => r.match_id === matchId);
+      const winner = getWinner(matchResults);
+      return winner?.players?.id === player.id ? acc + 1 : acc;
+    }, 0);
 
     const avgScore = totalGames
-      ? (playerResults.reduce((sum, r) => sum + r.score, 0) / totalGames).toFixed(1)
-      : '0.0'
+      ? (playerResults.reduce((sum, r) => sum + safeNum(r.score), 0) / totalGames).toFixed(1)
+      : '0.0';
 
-    const winrate = totalGames ? ((wins / totalGames) * 100).toFixed(1) : '0.0'
+    const winrate = totalGames ? ((wins / totalGames) * 100).toFixed(1) : '0.0';
 
     return {
       id: player.id,
-      player: player.name,
+      player: player.username,
       totalGames,
       wins,
       winrate: parseFloat(winrate),
-      avgScore: parseFloat(avgScore)
-    }
-  })
+      avgScore: parseFloat(avgScore),
+    };
+  });
 
-  const sortedDates = [...new Set(results.map(r => r.matches.date))].sort()
+  const sortedDates = [...new Set(validResults.map(r => r.matches?.date).filter(Boolean))].sort();
+
   const winrateOverTime = sortedDates.map(date => {
-    const dateResults = results.filter(r => r.matches.date <= date)
-    const matchIdsToDate = [...new Set(dateResults.map(r => r.match_id))]
-
-    const dataPoint = { date: new Date(date).toLocaleDateString() }
+    const dateResults = validResults.filter(r => r.matches?.date && r.matches.date <= date);
+    const matchIdsToDate = [...new Set(dateResults.map(r => r.match_id))];
+    const dataPoint = { date: new Date(date).toLocaleDateString() };
 
     players.forEach(player => {
-      const playerResults = dateResults.filter(r => r.players.id === player.id)
-      const totalGames = playerResults.length
-
+      const playerResults = dateResults.filter(r => r.players.id === player.id);
+      const totalGames = playerResults.length;
       const wins = matchIdsToDate.reduce((acc, matchId) => {
-        const matchResults = dateResults.filter(r => r.match_id === matchId)
-        const winner = getWinner(matchResults)
-        return winner.players.id === player.id ? acc + 1 : acc
-      }, 0)
+        const matchResults = dateResults.filter(r => r.match_id === matchId);
+        const winner = getWinner(matchResults);
+        return winner?.players?.id === player.id ? acc + 1 : acc;
+      }, 0);
+      const winrate = totalGames ? ((wins / totalGames) * 100).toFixed(1) : '0.0';
+      dataPoint[player.username] = parseFloat(winrate);
+    });
 
-      const winrate = totalGames ? ((wins / totalGames) * 100).toFixed(1) : '0.0'
-      dataPoint[player.name] = parseFloat(winrate)
-    })
-
-    return dataPoint
-  })
+    return dataPoint;
+  });
 
   const avgScoreOverTime = sortedDates.map(date => {
-    const dateResults = results.filter(r => r.matches.date <= date)
-    const dataPoint = { date: new Date(date).toLocaleDateString() }
+    const dateResults = validResults.filter(r => r.matches?.date && r.matches.date <= date);
+    const dataPoint = { date: new Date(date).toLocaleDateString() };
 
     players.forEach(player => {
-      const playerResults = dateResults.filter(r => r.players.id === player.id)
-      const totalGames = playerResults.length
+      const playerResults = dateResults.filter(r => r.players.id === player.id);
+      const totalGames = playerResults.length;
       const avg = totalGames
-        ? (playerResults.reduce((sum, r) => sum + r.score, 0) / totalGames).toFixed(1)
-        : 0
-      dataPoint[player.name] = parseFloat(avg)
-    })
+        ? (playerResults.reduce((sum, r) => sum + safeNum(r.score), 0) / totalGames).toFixed(1)
+        : 0;
+      dataPoint[player.username] = parseFloat(avg);
+    });
 
-    return dataPoint
-  })
+    return dataPoint;
+  });
 
-  const leaderStats = players.map(player => {
-    const playerResults = results.filter(r => r.players.id === player.id && r.leaders?.name)
-    const leaderMap = {}
-
+  // Leader pro Spieler – komplette Liste (Begrenzung erst im Render)
+  const leaderStatsPerPlayer = players.map(player => {
+    const playerResults = validResults.filter(r => r.players.id === player.id && r.leaders?.name);
+    const leaderMap = {};
     playerResults.forEach(r => {
-      const name = r.leaders.name
-      if (!leaderMap[name]) {
-        leaderMap[name] = { count: 0, totalScore: 0 }
-      }
-      leaderMap[name].count += 1
-      leaderMap[name].totalScore += r.score
-    })
+      const name = r.leaders.name;
+      if (!name) return;
+      if (!leaderMap[name]) leaderMap[name] = { count: 0, totalScore: 0 };
+      leaderMap[name].count += 1;
+      leaderMap[name].totalScore += safeNum(r.score);
+    });
 
     const leadersArray = Object.entries(leaderMap).map(([name, data]) => ({
       name,
       count: data.count,
-      avgScore: (data.totalScore / data.count).toFixed(1)
-    }))
+      avgScore: (data.totalScore / data.count).toFixed(1),
+    }));
 
     const sorted = leaderMode === 'mostUsed'
       ? leadersArray.sort((a, b) => b.count - a.count)
-      : leadersArray.sort((a, b) => b.avgScore - a.avgScore)
+      : leadersArray.sort((a, b) => b.avgScore - a.avgScore);
 
-    return {
-      player: player.name,
-      topLeaders: sorted.slice(0, 5)
-    }
-  })
+    return { player: player.username, leaders: sorted };
+  });
 
-  const matchGroups = results.reduce((acc, r) => {
-    if (!acc[r.match_id]) acc[r.match_id] = []
-    acc[r.match_id].push(r)
-    return acc
-  }, {})
-
-  const matchesWithRounds = Object.values(matchGroups).filter(m => m[0].matches.played_rounds !== null)
-  const matches3 = matchesWithRounds.filter(m => m.length === 3)
-  const matches4 = matchesWithRounds.filter(m => m.length === 4)
+  const matchGroups = validResults.reduce((acc, r) => {
+    if (!acc[r.match_id]) acc[r.match_id] = [];
+    acc[r.match_id].push(r);
+    return acc;
+  }, {});
+  const matchesWithRounds = Object.values(matchGroups).filter(
+    m => m[0]?.matches?.played_rounds != null
+  );
+  const matches3 = matchesWithRounds.filter(m => m.length === 3);
+  const matches4 = matchesWithRounds.filter(m => m.length === 4);
 
   const avgRounds3 = matches3.length
-    ? (matches3.reduce((sum, match) => sum + (match[0].matches.played_rounds ?? 0), 0) / matches3.length).toFixed(1)
-    : '–'
-
+    ? (matches3.reduce((sum, match) => sum + (match[0]?.matches?.played_rounds ?? 0), 0) / matches3.length).toFixed(1)
+    : '–';
   const avgRounds4 = matches4.length
-    ? (matches4.reduce((sum, match) => sum + (match[0].matches.played_rounds ?? 0), 0) / matches4.length).toFixed(1)
-    : '–'
+    ? (matches4.reduce((sum, match) => sum + (match[0]?.matches?.played_rounds ?? 0), 0) / matches4.length).toFixed(1)
+    : '–';
 
-  const placementOverTime = []
+  const placementsPerPlayer = players.map(player => {
+    const placementCounts = {};
+    let totalGames = 0;
+    validResults.forEach(result => {
+      if (result.players.id === player.id) {
+        const matchResults = validResults.filter(r => r.match_id === result.match_id);
+        const sorted = matchResults
+          .filter(r => r.players?.id != null)
+          .sort((a, b) => {
+            if (safeNum(b.score) !== safeNum(a.score)) return safeNum(b.score) - safeNum(a.score);
+            if (safeNum(b.spice) !== safeNum(a.spice)) return safeNum(b.spice) - safeNum(a.spice);
+            if (safeNum(b.solari) !== safeNum(a.solari)) return safeNum(b.solari) - safeNum(a.solari);
+            return safeNum(b.water) - safeNum(a.water);
+          });
+        const placement = sorted.findIndex(r => r.players.id === player.id) + 1;
+        if (placement > 0) {
+          placementCounts[placement] = (placementCounts[placement] || 0) + 1;
+          totalGames++;
+        }
+      }
+    });
+    const placementPercentages = {};
+    Object.entries(placementCounts).forEach(([place, count]) => {
+      placementPercentages[place] = ((count / (totalGames || 1)) * 100).toFixed(1);
+    });
+    return { player: player.username, placements: placementPercentages };
+  });
 
-  sortedDates.forEach(date => {
-    const matchGroups = results.reduce((acc, r) => {
-      if (r.matches.date !== date) return acc
-      if (!acc[r.match_id]) acc[r.match_id] = []
-      acc[r.match_id].push(r)
-      return acc
-    }, {})
+  const leaderOccurrences = {};
+  const leaderWins = {};
+  validResults.forEach(result => {
+    const leaderName = result.leaders?.name;
+    if (!leaderName) return;
+    leaderOccurrences[leaderName] = (leaderOccurrences[leaderName] || 0) + 1;
 
-    Object.entries(matchGroups).forEach(([matchId, matchResults]) => {
-      const sorted = [...matchResults].sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score
-        if (b.spice !== a.spice) return b.spice - a.spice
-        if (b.solari !== a.solari) return b.solari - a.solari
-        return b.water - a.water
-      })
-
-      const dataPoint = { date: new Date(date).toLocaleDateString() }
-
-      players.forEach(player => {
-        const index = sorted.findIndex(r => r.players.id === player.id)
-        dataPoint[player.name] = index >= 0 ? index + 1 : null
-      })
-
-      placementOverTime.push(dataPoint)
-    })
-
-    
-  })
-
-  // Platzierungs-Übersicht pro Spieler berechnen
-const placementsPerPlayer = players.map(player => {
-  const placementCounts = {};
-  let totalGames = 0;
-  results.forEach(result => {
-    if (result.players.id === player.id) {
-      const matchResults = results.filter(r => r.match_id === result.match_id);
-      const sorted = matchResults.sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        if (b.spice !== a.spice) return b.spice - a.spice;
-        if (b.solari !== a.solari) return b.solari - a.solari;
-        return b.water - a.water;
-      });
-      const placement = sorted.findIndex(r => r.players.id === player.id) + 1;
-      placementCounts[placement] = (placementCounts[placement] || 0) + 1;
-      totalGames++;
+    const matchResults = validResults.filter(r => r.match_id === result.match_id);
+    const winner = getWinner(matchResults);
+    const winnerLeaderName = winner?.leaders?.name;
+    if (winnerLeaderName && winnerLeaderName === leaderName) {
+      leaderWins[leaderName] = (leaderWins[leaderName] || 0) + 1;
     }
   });
-  const placementPercentages = {};
-  Object.entries(placementCounts).forEach(([place, count]) => {
-    placementPercentages[place] = ((count / totalGames) * 100).toFixed(1);
-  });
-  return {
-    player: player.name,
-    placements: placementPercentages
-  };
-});
+  const leaderStatsGlobal = Object.entries(leaderOccurrences).map(([name, count]) => ({
+    name,
+    count,
+    winrate: leaderWins[name] ? ((leaderWins[name] / count) * 100).toFixed(1) : '0.0',
+  }));
+  const top7Leaders = leaderModeGlobal === 'mostUsed'
+    ? [...leaderStatsGlobal].sort((a, b) => b.count - a.count).slice(0, 7)
+    : [...leaderStatsGlobal].sort((a, b) => parseFloat(b.winrate) - parseFloat(a.winrate)).slice(0, 7);
 
-const COLORS = ['#4ADE80', '#60A5FA', '#FBBF24', '#F87171'];
-
-const placementPieData = placementsPerPlayer.length > 0
-  ? placementsPerPlayer.map(playerData => {
-      return Object.entries(playerData.placements).map(([place, percentage]) => ({
-        name: `${place}. Platz`,
-        value: parseFloat(percentage)
-      }));
-    })
-  : [];
-
-  const donutChartData = placementsPerPlayer.map(playerData => {
-    const data = Object.entries(playerData.placements).map(([place, percentage]) => ({
-      name: `${place}. Platz`,
-      value: parseFloat(percentage)
-    }));
-    const avgPlacement = Object.entries(playerData.placements).reduce((sum, [place, percent]) => {
-      return sum + parseInt(place) * (parseFloat(percent) / 100);
-    }, 0).toFixed(2);
-    return {
-      name: playerData.player,
-      data,
-      avgPlacement
-    };
-  });
-
-
-
-// Globale Leader-Statistik berechnen
-const leaderOccurrences = {};
-const leaderWins = {};
-
-results.forEach(result => {
-  const leaderName = result.leaders?.name;
-  if (!leaderName) return;
-
-  leaderOccurrences[leaderName] = (leaderOccurrences[leaderName] || 0) + 1;
-
-  const matchResults = results.filter(r => r.match_id === result.match_id);
-  const winner = getWinner(matchResults);
-
-  const winnerLeaderName = winner?.leaders?.name;
-  if (winnerLeaderName && winnerLeaderName === leaderName) {
-    leaderWins[leaderName] = (leaderWins[leaderName] || 0) + 1;
-  }
-});
-
-const leaderStatsGlobal = Object.entries(leaderOccurrences).map(([name, count]) => ({
-  name,
-  count,
-  winrate: leaderWins[name] ? ((leaderWins[name] / count) * 100).toFixed(1) : '0.0'
-}));
-
-const top7Leaders = leaderModeGlobal === 'mostUsed'
-  ? [...leaderStatsGlobal].sort((a, b) => b.count - a.count).slice(0, 7)
-  : [...leaderStatsGlobal].sort((a, b) => parseFloat(b.winrate) - parseFloat(a.winrate)).slice(0, 7);
-
-
+  // Farbzuordnung für Charts (aus favorite_color oder Fallback)
+  const playerColorMap = players.reduce((acc, p) => {
+    const c = ALLOWED_COLORS.includes(p.favorite_color)
+      ? p.favorite_color
+      : colorFallbackFor(p.id || p.username);
+    acc[p.username] = c;
+    return acc;
+  }, {});
 
   return (
     <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
-
       <h1 className="text-2xl font-bold mb-8 flex items-center gap-2">
         <Trophy className="text-green-400 w-6 h-6" /> Dashboard
       </h1>
 
-          {/*<h1 className="text-3xl font-bold mb-6">🏆 Dashboard</h1>*/}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              {[{label: 'Gesamt Partien', value: matchStats.total}, {label: 'Dune Imperium', value: matchStats.dune}, {label: 'Dune Imperium Uprising', value: matchStats.uprising}].map((item) => (
-                <div key={item.label} className="p-5 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
-                  <div className="text-4xl font-bold text-green-500 mb-2">{item.value}</div>
-                  <div className="text-gray-600">{item.label}</div>
-                </div>
-              ))}
-            </div>
+      {/* Aktive Gruppe */}
+      <div className="mb-6">
+        <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-800 px-3 py-1 rounded-full border border-blue-200">
+          <span className="font-semibold">Aktive Gruppe:</span>
+          <span className="font-medium">{groupName || '–'}</span>
+        </div>
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {[{label:'Gesamt Partien',value:matchStats.total},{label:'Dune Imperium',value:matchStats.dune},{label:'Dune Imperium Uprising',value:matchStats.uprising}]
+          .map(item=>(
+          <div key={item.label} className="p-5 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
+            <div className="text-4xl font-bold text-green-500 mb-2">{item.value}</div>
+            <div className="text-gray-600">{item.label}</div>
+          </div>
+        ))}
+      </div>
 
-           
       <div className="bg-white flex-wrap rounded-xl shadow-lg p-6 mb-8 sm:flex-row sm:items-center sm:justify-between mt-10 mb-4 gap-2 overflow-x-auto">
         <div className="flex flex-col sm:items-center justify-between">
           <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -360,115 +398,45 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
             onClick={() => setLeaderModeGlobal(leaderModeGlobal === 'mostUsed' ? 'bestWinrate' : 'mostUsed')}
             className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
           >
-            {leaderModeGlobal === 'mostUsed' ? (
-              <><Shuffle className="w-4 h-4" /> Nach Winrate anzeigen</>
-            ) : (
-              <><Star className="w-4 h-4" /> Meistgespielte anzeigen</>
-            )}
+            {leaderModeGlobal === 'mostUsed' ? (<><Shuffle className="w-4 h-4" /> Nach Winrate anzeigen</>) : (<><Star className="w-4 h-4" /> Meistgespielte anzeigen</>)}
           </button>
         </div>
-
-          <table className="mt-4 w-full text-left">
-            <thead>
-              <tr className="bg-gray-800 text-white">
-                <th className="p-2">Leader</th>
-                <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Winrate'}</th>
-                <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Winrate' : 'Spiele'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {top7Leaders.map(leader => (
-                <tr key={leader.name} className="border-t">
-                  <td className="p-2 font-medium">{leader.name}</td>
-                  <td className="p-2 text-center">
-                    {leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}
-                  </td>
-                  <td className="p-2 text-center">
-                    {leaderModeGlobal === 'mostUsed' ? `${leader.winrate}%` : leader.count}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-      </div>
-
-
-      <div className="bg-white rounded-xl shadow-lg flex-wrap p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><TrendingUp className="text-blue-500" /> Durchschnittliche Rundenanzahl</h2>
-        <p><strong>3 Spieler:</strong> {avgRounds3}</p>
-        <p><strong>4 Spieler:</strong> {avgRounds4}</p>
-      </div>
-{/*
-      <h2 className="text-xl font-semibold mb-2">Spieler-Statistik</h2>
-      <div className="overflow-x-auto mb-8">
-        <table className="min-w-full border border-collapse">
+        <table className="mt-4 w-full text-left">
           <thead>
-            <tr className="bg-gray-800">
-              <th className="border p-2 text-left">Spieler</th>
-              <th className="border p-2">Partien</th>
-              <th className="border p-2">Siege</th>
-              <th className="border p-2">Ø Punkte</th>
-              <th className="border p-2">Winrate (%)</th>
+            <tr className="bg-gray-800 text-white">
+              <th className="p-2">Leader</th>
+              <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Winrate'}</th>
+              <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Winrate' : 'Spiele'}</th>
             </tr>
           </thead>
           <tbody>
-            {playerStats.map(stat => (
-              <tr key={stat.player}>
-                <td className="border p-2 break-words whitespace-normal">{stat.player}</td>
-                <td className="border p-2 text-center">{stat.totalGames}</td>
-                <td className="border p-2 text-center">{stat.wins}</td>
-                <td className="border p-2 text-center">{stat.avgScore}</td>
-                <td className="border p-2 text-center">{stat.winrate}</td>
+            {top7Leaders.map(leader => (
+              <tr key={leader.name} className="border-t">
+                <td className="p-2 font-medium">{leader.name}</td>
+                <td className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}</td>
+                <td className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? `${leader.winrate}%` : leader.count}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-*/}
 
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><TrendingUp className="text-blue-500" /> Durchschnittliche Rundenanzahl</h2>
+        <p><strong>3 Spieler:</strong> {avgRounds3}</p>
+        <p><strong>4 Spieler:</strong> {avgRounds4}</p>
+      </div>
 
-
-{/* Desktop-Tabelle: nur auf md und größer sichtbar 
-<div className="overflow-x-auto mb-8 hidden md:block">
-  <table className="min-w-full border border-collapse">
-    <thead>
-      <tr className="dark:bg-gray-800">
-        <th className="border p-2 text-left">Spieler</th>
-        <th className="border p-2">Partien</th>
-        <th className="border p-2">Siege</th>
-        <th className="border p-2">Ø Punkte</th>
-        <th className="border p-2">Winrate (%)</th>
-      </tr>
-    </thead>
-    <tbody>
-      {playerStats.map(stat => (
-        <tr key={stat.player}>
-          <td className="border p-2 break-words whitespace-normal">{stat.player}</td>
-          <td className="border p-2 text-center">{stat.totalGames}</td>
-          <td className="border p-2 text-center">{stat.wins}</td>
-          <td className="border p-2 text-center">{stat.avgScore}</td>
-          <td className="border p-2 text-center">{stat.winrate}</td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>*/}
-
-
-
-
- <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Star className="text-yellow-400" /> Spieler-Statistik</h2>
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Star className="text-yellow-400" /> Spieler-Statistik</h2>
       <div className="overflow-auto mb-8 bg-white rounded-xl shadow-lg flex-wrap hidden md:block">
         <table className="w-full text-left">
           <thead className="bg-gray-100">
             <tr>
-              {['Spieler', 'Partien', 'Siege', 'Ø Punkte', 'Winrate (%)'].map((head) => (
-                <th key={head} className="p-4 font-medium">{head}</th>
-              ))}
+              {['Spieler','Partien','Siege','Ø Punkte','Winrate (%)'].map(h => <th key={h} className="p-4 font-medium">{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {playerStats.map((stat) => (
+            {playerStats.map(stat => (
               <tr key={stat.player} className="border-t">
                 <td className="p-4 font-semibold">{stat.player}</td>
                 <td className="p-4">{stat.totalGames}</td>
@@ -481,10 +449,10 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
         </table>
       </div>
 
-{/* Mobile-Version: als Cards */}
-<div className="space-y-4 flex-wrap md:hidden">
+      {/* Mobile Cards */}
+      <div className="space-y-4 flex-wrap md:hidden">
         {playerStats.map(stat => (
-          <div key={stat.player} className="p-5 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
+          <div key={stat.player} className="p-5 bg-white rounded-xl shadow-lg">
             <div className="text-xl font-semibold text-gray-800 mb-2">{stat.player}</div>
             <div className="text-sm text-gray-600">
               <div><strong>Partien:</strong> {stat.totalGames}</div>
@@ -495,234 +463,234 @@ const top7Leaders = leaderModeGlobal === 'mostUsed'
           </div>
         ))}
       </div>
-      <br />
+
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-      <h2 className="text-xl font-semibold mb-4">📈 Winrate-Verlauf</h2>
-      <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={winrateOverTime}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis domain={[0, 100]} tickFormatter={(tick) => `${tick}%`} />
-          <Tooltip formatter={(value) => `${value}%`} />
-          <Legend iconType="plainline" />
-          {players.map(player => (
-             <Line
-             key={player.id}
-             type="monotone"
-             dataKey={player.name}
-             stroke={playerColors[player.name] || '#000'}
-             strokeWidth={3}
-             strokeDasharray={playerLineStyles[player.name]?.strokeDasharray}
-             dot={false}
-           />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-      <h2 className="text-xl font-semibold mb-4">⏳ Punkteentwicklung</h2>
-      <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={avgScoreOverTime}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Legend iconType="plainline" />
-          {players.map(player => (
-             <Line
-             key={player.id}
-             type="monotone"
-             dataKey={player.name}
-             stroke={playerColors[player.name] || '#000'}
-             strokeWidth={3}
-             strokeDasharray={playerLineStyles[player.name]?.strokeDasharray}
-             dot={false}
-           />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-      </div>
-      
-     {/* Übersicht Platzierungen pro Spieler 
-     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-    🥇 Übersicht der Platzierungen pro Spieler (in %)
-  </h2>
-  <div className="overflow-x-auto">
-    <table className="w-full text-left">
-      <thead className="bg-gray-800 text-white">
-        <tr>
-          <th className="p-2">Spieler</th>
-          {Array.from({ length: players.length }, (_, i) => i + 1).map(place => (
-            <th key={place} className="p-2 text-center">{place}. Platz</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {placementsPerPlayer.map(stat => (
-          <tr key={stat.player} className="border-t">
-            <td className="p-2 font-medium">{stat.player}</td>
-            {Array.from({ length: players.length }, (_, i) => i + 1).map(place => (
-              <td key={place} className="p-2 text-center">
-                {stat.placements[place] ? `${stat.placements[place]}%` : '0.0%'}
-              </td>
+        <h2 className="text-xl font-semibold mb-4">📈 Winrate-Verlauf</h2>
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={winrateOverTime}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis domain={[0, 100]} tickFormatter={(tick) => `${tick}%`} />
+            <Tooltip formatter={(value) => `${value}%`} />
+            <Legend iconType="plainline" />
+            {players.map(player => (
+              <Line
+                key={player.id}
+                type="monotone"
+                dataKey={player.username}
+                stroke={playerColorMap[player.username] || '#000'}
+                strokeWidth={3}
+                strokeDasharray={lineStyleFor(player).strokeDasharray}
+                dot={false}
+              />
             ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>*/}
-
-
-<div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-    <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-800 ">
-      🥧 Platzierungen
-    </h2>
-    <div className="flex flex-wrap gap-2 justify-start sm:justify-end max-w-full">
-      {placementsPerPlayer.map((stat, index) => (
-        <button
-          key={stat.player}
-          onClick={() => setSelectedPlayerIndex(index)}
-          className={`px-3 py-1 rounded text-sm border whitespace-nowrap transition
-            ${
-              selectedPlayerIndex === index
-                ? 'bg-green-500 text-white border-blue-500'
-                : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300'
-            }`}
-        >
-          {stat.player}
-        </button>
-      ))}
-    </div>
-  </div>
-  {placementPieData.length > 0 && (
-  <div className="relative w-full h-[300px]">
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart>
-        <Pie
-          data={placementPieData[selectedPlayerIndex]}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          paddingAngle={5}
-          innerRadius={55}
-          outerRadius={75}
-          labelLine={false}
-          labelRadius={50}
-          label={window.innerWidth >= 320 ? ({ percent }) => `${(percent * 100).toFixed(1)}%` : false}
-          
-        >
-          {placementPieData[selectedPlayerIndex].map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
-        <Legend />
-      </PieChart>
-    </ResponsiveContainer>
-
-    {/* ZENTRIERTER Ø-Wert */}
-    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-      <div className="text-sm font-xs text-gray-600">
-          {placementsPerPlayer[selectedPlayerIndex]?.player}
+          </LineChart>
+        </ResponsiveContainer>
       </div>
-      <div className="text-sm font-xs text-gray-600">
-        Ø Platzierung
+
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4">⏳ Punkteentwicklung</h2>
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={avgScoreOverTime}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Legend iconType="plainline" />
+            {players.map(player => (
+              <Line
+                key={player.id}
+                type="monotone"
+                dataKey={player.username}
+                stroke={playerColorMap[player.username] || '#000'}
+                strokeWidth={3}
+                strokeDasharray={lineStyleFor(player).strokeDasharray}
+                dot={false}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
       </div>
-      <div className="text-xl font-bold text-gray-800">
-        {
-          // Durchschnitt berechnen
-          (() => {
-            const chart = placementsPerPlayer[selectedPlayerIndex];
-            const avg = Object.entries(chart.placements).reduce((sum, [place, percent]) => {
-              return sum + parseInt(place) * (parseFloat(percent) / 100);
-            }, 0);
-            return avg.toFixed(2);
-          })()
-        }
-      </div>
-    </div>
-  </div>
-)}
 
-  
-</div>
+      {/* Placements */}
+      <PlacementsSection
+        placementsPerPlayer={players.map(player => {
+          const placementCounts = {};
+          let totalGames = 0;
+          validResults.forEach(result => {
+            if (result.players.id === player.id) {
+              const matchResults = validResults.filter(r => r.match_id === result.match_id);
+              const sorted = matchResults
+                .filter(r => r.players?.id != null)
+                .sort((a, b) => {
+                  if (safeNum(b.score) !== safeNum(a.score)) return safeNum(b.score) - safeNum(a.score);
+                  if (safeNum(b.spice) !== safeNum(a.spice)) return safeNum(b.spice) - safeNum(a.spice);
+                  if (safeNum(b.solari) !== safeNum(a.solari)) return safeNum(b.solari) - safeNum(a.solari);
+                  return safeNum(b.water) - safeNum(a.water);
+                });
+              const placement = sorted.findIndex(r => r.players.id === player.id) + 1;
+              if (placement > 0) {
+                placementCounts[placement] = (placementCounts[placement] || 0) + 1;
+                totalGames++;
+              }
+            }
+          });
+          const placementPercentages = {};
+          Object.entries(placementCounts).forEach(([place, count]) => {
+            placementPercentages[place] = ((count / (totalGames || 1)) * 100).toFixed(1);
+          });
+          return { player: player.username, placements: placementPercentages };
+        })}
+        selectedPlayerIndex={selectedPlayerIndex}
+        setSelectedPlayerIndex={setSelectedPlayerIndex}
+      />
 
- {/*  Platzierungen pro Spieler Flussdiagramm
+      {/* Leader pro Spieler – pro Karte expand/collapse */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap mt-10 mb-4 gap-2 overflow-x-auto">
+        <h2 className="text-xl font-semibold">Leader pro Spieler</h2>
 
-      <h2 className="text-xl font-semibold mt-10 mb-2">📉 Platzierungen im Verlauf</h2>
-      <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={placementOverTime}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis reversed={true} allowDecimals={true} domain={[1, 4]} />
-          <Tooltip />
-          <Legend iconType="plainline" />
-          {players.map(player => (
-             <Line
-             key={player.id}
-             type="monotone"
-             dataKey={player.name}
-             stroke={playerColors[player.name] || '#000'}
-             strokeWidth={3}
-             strokeDasharray={playerLineStyles[player.name]?.strokeDasharray}
-             dot={playerLineStyles[player.name].dot}
-           />
-          ))}
-        </LineChart>
-      </ResponsiveContainer> */}
-
-    
-      
-       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap mt-10 mb-4 gap-2 overflow-x-auto">
-        <h2 className="text-xl font-semibold">Top 5 Leader pro Spieler</h2>
-        <button
-          onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
-          className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
-        >
-          {leaderMode === 'mostUsed' ? (
-            <><Star className="w-4 h-4" /> Zeige beste Leader nach Punkten</>
-          ) : (
-            <><Shuffle className="w-4 h-4" /> Zeige meistgespielte Leader</>
-          )}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLeaderMode(leaderMode === 'mostUsed' ? 'bestScore' : 'mostUsed')}
+            className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
+          >
+            {leaderMode === 'mostUsed'
+              ? (<><Star className="w-4 h-4" /> Zeige beste Leader nach Punkten</>)
+              : (<><Shuffle className="w-4 h-4" /> Zeige meistgespielte Leader</>)}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-x-auto">
-        {leaderStats.map(stat => (
-          <div key={stat.player} className="p-4 bg-white rounded-xl shadow-lg overflow-auto">
-            <h3 className="font-semibold mb-2 text-base md:text-lg text-gray-800">{stat.player}</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm md:text-base">
-                <thead>
-                  <tr className="bg-gray-800 text-white">
-                    <th className="p-2 text-left">Leader</th>
-                    <th className="p-2 text-center whitespace-nowrap">
-                      {leaderMode === 'mostUsed' ? 'Spiele' : 'Ø Punkte'}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stat.topLeaders.map(leader => (
-                    <tr key={leader.name} className="border-t">
-                      <td className="p-2 break-words whitespace-normal">{leader.name}</td>
-                      <td className="p-2 text-center whitespace-nowrap">
-                        {leaderMode === 'mostUsed' ? `${leader.count}` : `${leader.avgScore}`}
-                      </td>
+        {leaderStatsPerPlayer.map(stat => {
+          const isExpanded = expandedPlayers.has(stat.player);
+          const rows = isExpanded ? stat.leaders : stat.leaders.slice(0, 5);
+          return (
+            <div key={stat.player} className="p-4 bg-white rounded-xl shadow-lg overflow-auto">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="font-semibold text-base md:text-lg text-gray-800">{stat.player}</h3>
+                <button
+                  onClick={() => togglePlayerExpanded(stat.player)}
+                  className="inline-flex items-center gap-2 text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded transition"
+                  aria-expanded={isExpanded}
+                  aria-controls={`leader-table-${stat.player}`}
+                >
+                  {isExpanded ? 'Top 5 anzeigen' : 'Alle Leader anzeigen'}
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table
+                  id={`leader-table-${stat.player}`}
+                  className="w-full border-collapse text-sm md:text-base"
+                >
+                  <thead>
+                    <tr className="bg-gray-800 text-white">
+                      <th className="p-2 text-left">Leader</th>
+                      <th className="p-2 text-center whitespace-nowrap">
+                        {leaderMode === 'mostUsed' ? 'Spiele' : 'Ø Punkte'}
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map(leader => (
+                      <tr key={leader.name} className="border-t">
+                        <td className="p-2 break-words whitespace-normal">{leader.name}</td>
+                        <td className="p-2 text-center whitespace-nowrap">
+                          {leaderMode === 'mostUsed' ? `${leader.count}` : `${leader.avgScore}`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PlacementsSection({ placementsPerPlayer, selectedPlayerIndex, setSelectedPlayerIndex }) {
+  const COLORS = ['#4ADE80', '#60A5FA', '#FBBF24', '#F87171'];
+  const placementPieData = placementsPerPlayer.length > 0
+    ? placementsPerPlayer.map(playerData =>
+        Object.entries(playerData.placements).map(([place, percentage]) => ({
+          name: `${place}. Platz`,
+          value: parseFloat(percentage),
+        }))
+      )
+    : [];
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+        <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-800 ">
+          🥧 Platzierungen
+        </h2>
+        <div className="flex flex-wrap gap-2 justify-start sm:justify-end max-w-full">
+          {placementsPerPlayer.map((stat, index) => (
+            <button
+              key={stat.player}
+              onClick={() => setSelectedPlayerIndex(index)}
+              className={`px-3 py-1 rounded text-sm border whitespace-nowrap transition
+                ${selectedPlayerIndex === index
+                    ? 'bg-green-500 text-white border-blue-500'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300'}`}
+            >
+              {stat.player}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {placementPieData.length > 0 && (
+        <div className="relative w-full h-[300px]">
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={placementPieData[selectedPlayerIndex]}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                paddingAngle={5}
+                innerRadius={55}
+                outerRadius={75}
+                labelLine={false}
+                labelRadius={50}
+                label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
+              >
+                {placementPieData[selectedPlayerIndex].map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
 
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+            <div className="text-sm font-xs text-gray-600">
+              {placementsPerPlayer[selectedPlayerIndex]?.player}
+            </div>
+            <div className="text-sm font-xs text-gray-600">Ø Platzierung</div>
+            <div className="text-xl font-bold text-gray-800">
+              {(() => {
+                const chart = placementsPerPlayer[selectedPlayerIndex];
+                const avg = Object.entries(chart.placements).reduce((sum, [place, percent]) => {
+                  return sum + parseInt(place) * (parseFloat(percent) / 100);
+                }, 0);
+                return avg.toFixed(2);
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-    
-  )
+  );
 }

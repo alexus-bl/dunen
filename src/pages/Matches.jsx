@@ -1,19 +1,64 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { supabase } from '../supabaseClient'
-import { List, Medal, Calendar, Gamepad, Puzzle, Atom, RotateCw, Pencil } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import { List, Calendar, Gamepad, Puzzle, Atom, RotateCw, Pencil, Trash2 } from 'lucide-react';
+import { useGroup } from '../context/GroupContext';
 
 export default function Matches() {
-  const [matches, setMatches] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { groupId, setGroupId } = useGroup();
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
+  // groupId nach Reload wiederherstellen
   useEffect(() => {
-    async function fetchMatchesAndResults() {
-      const { data, error } = await supabase
+    if (!groupId) {
+      try {
+        const last = localStorage.getItem('lastGroupId');
+        if (last) setGroupId(last);
+      } catch {}
+    }
+  }, [groupId, setGroupId]);
+
+  // prüfen, ob aktueller User Owner dieser Gruppe ist
+  useEffect(() => {
+    const checkOwner = async () => {
+      setIsOwner(false);
+      if (!groupId) return;
+
+      const { data: { user }, error: uErr } = await supabase.auth.getUser();
+      if (uErr || !user) return;
+
+      const { data: me, error: pErr } = await supabase
+        .from('players')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (pErr || !me) return;
+
+      const { data: gm, error: gmErr } = await supabase
+        .from('group_members')
+        .select('role')
+        .eq('group_id', groupId)
+        .eq('player_id', me.id)
+        .maybeSingle();
+
+      if (!gmErr && gm && gm.role === 'owner') setIsOwner(true);
+    };
+    checkOwner();
+  }, [groupId]);
+
+  const fetchMatchesAndResults = useCallback(async () => {
+    try {
+      if (!groupId) { setLoading(false); return; }
+
+      const { data, error, status } = await supabase
         .from('matches')
         .select(`
           id,
           date,
+          group_id,
           games (id, name),
           expansions (id, name),
           with_expansion,
@@ -21,7 +66,7 @@ export default function Matches() {
           played_rounds,
           results (
             id,
-            players (id, name),
+            players (id, username),
             leaders (id, name),
             score,
             spice,
@@ -29,36 +74,69 @@ export default function Matches() {
             water
           )
         `)
-        .order('date', { ascending: false })
+        .eq('group_id', groupId)
+        .order('date', { ascending: false });
 
       if (error) {
-        console.error('Fehler:', error)
-      } else {
-        const sortedData = data.map(match => {
-          const sortedResults = [...match.results].sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score
-            if (b.spice !== a.spice) return b.spice - a.spice
-            if (b.solari !== a.solari) return b.solari - a.solari
-            return b.water - a.water
-          })
-
-          const resultsWithPlacement = sortedResults.map((result, index) => ({
-            ...result,
-            placement: index + 1,
-          }))
-
-          return { ...match, results: resultsWithPlacement }
-        })
-
-        setMatches(sortedData)
+        console.error('[Matches] SELECT error:', status, error.message);
+        setMatches([]);
+        return;
       }
-      setLoading(false)
+
+      const sortedData = (data || []).map(match => {
+        const sortedResults = [...(match.results || [])].sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          if (b.spice !== a.spice) return b.spice - a.spice;
+          if (b.solari !== a.solari) return b.solari - a.solari;
+          return b.water - a.water;
+        });
+        const resultsWithPlacement = sortedResults.map((result, index) => ({
+          ...result,
+          placement: index + 1,
+        }));
+        return { ...match, results: resultsWithPlacement };
+      });
+
+      setMatches(sortedData);
+    } catch (e) {
+      console.error('[Matches] load fail:', e);
+      setMatches([]);
+    } finally {
+      setLoading(false);
     }
+  }, [groupId]);
 
-    fetchMatchesAndResults()
-  }, [])
+  useEffect(() => {
+    fetchMatchesAndResults();
+  }, [fetchMatchesAndResults]);
 
-  if (loading) return <div className="flex items-center justify-center h-screen text-xl text-gray-600">Lade Partien und Ergebnisse...</div>
+  const handleDeleteMatch = async (matchId) => {
+    if (!isOwner) return;
+    if (!confirm('Diese Partie wirklich löschen? Alle zugehörigen Ergebnisse werden entfernt.')) return;
+
+    setDeletingId(matchId);
+    try {
+      // 1) Results löschen (falls kein ON DELETE CASCADE vorhanden)
+      const delRes = await supabase.from('results').delete().eq('match_id', matchId);
+      if (delRes.error && delRes.error.code !== 'PGRST116') { // PGRST116 = No rows found, ok
+        throw delRes.error;
+      }
+
+      // 2) Match löschen
+      const delMatch = await supabase.from('matches').delete().eq('id', matchId);
+      if (delMatch.error) throw delMatch.error;
+
+      // 3) Liste aktualisieren
+      setMatches(prev => prev.filter(m => m.id !== matchId));
+    } catch (e) {
+      console.error('[Matches] delete failed:', e);
+      alert(e.message || 'Partie konnte nicht gelöscht werden.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-screen text-xl text-gray-600">Lade Partien und Ergebnisse...</div>;
 
   return (
     <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
@@ -68,7 +146,7 @@ export default function Matches() {
         <p className="text-gray-500">Keine Partien gespeichert.</p>
       ) : (
         matches.map(match => {
-          const showResources = match.results.some(r => r.spice || r.solari || r.water)
+          const showResources = (match.results || []).some(r => r.spice || r.solari || r.water);
 
           return (
             <div key={match.id} className="mb-8 p-6 bg-white rounded-xl shadow-md">
@@ -80,8 +158,9 @@ export default function Matches() {
                 <div className="flex items-center gap-2"><RotateCw className="text-gray-600" /><strong>Runden:</strong> {match.played_rounds ?? '-'}</div>
               </div>
 
-              {match.results.length > 0 ? (
+              {(match.results || []).length > 0 ? (
                 <>
+                  {/* Desktop */}
                   <div className="hidden sm:block overflow-x-auto">
                     <table className="min-w-full table-auto border-collapse text-sm md:text-base">
                       <thead className="bg-gray-800 text-white">
@@ -104,7 +183,7 @@ export default function Matches() {
                               {result.placement === 3 && '🥉'}
                               {result.placement > 3 && result.placement}
                             </td>
-                            <td className="border p-2 break-words">{result.players?.name || '-'}</td>
+                            <td className="border p-2 break-words">{result.players?.username || '-'}</td>
                             <td className="border p-2 break-words">{result.leaders?.name || '-'}</td>
                             <td className="border p-2 text-center">{result.score}</td>
                             {showResources && <td className="border p-2 text-center">{result.spice}</td>}
@@ -116,13 +195,14 @@ export default function Matches() {
                     </table>
                   </div>
 
+                  {/* Mobile */}
                   <div className="sm:hidden space-y-4">
                     {match.results.map(result => (
                       <div key={result.id} className="border rounded-xl bg-gray-50 p-4 shadow-sm">
                         <div className="font-bold text-lg">
                           {result.placement <= 3 ? ['🥇', '🥈', '🥉'][result.placement - 1] : `${result.placement}. Platz`}
                         </div>
-                        <div><strong>Spieler:</strong> {result.players?.name || '-'}</div>
+                        <div><strong>Spieler:</strong> {result.players?.username || '-'}</div>
                         <div><strong>Anführer:</strong> {result.leaders?.name || '-'}</div>
                         <div><strong>Siegpunkte:</strong> {result.score}</div>
                         {showResources && (
@@ -139,14 +219,31 @@ export default function Matches() {
               ) : (
                 <p className="text-sm text-gray-500">Keine Ergebnisse gespeichert.</p>
               )}
+        {isOwner && (
+              <div className="mt-4 flex items-center gap-2">
+                <Link
+                  to={`/edit-match/${match.id}`}
+                  className="inline-flex items-center gap-1 bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition"
+                >
+                  <Pencil className="w-4 h-4" /> Bearbeiten
+                </Link>
 
-              <Link to={`/edit-match/${match.id}`} className="mt-4 inline-flex items-center gap-1 bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition">
-                <Pencil className="w-4 h-4" /> Bearbeiten
-              </Link>
+                
+                  <button
+                    onClick={() => handleDeleteMatch(match.id)}
+                    disabled={deletingId === match.id}
+                    className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition disabled:opacity-60"
+                    title="Partie löschen (nur Owner)"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {deletingId === match.id ? 'Lösche…' : 'Löschen'}
+                  </button>
+                
+              </div>)}
             </div>
-          )
+          );
         })
       )}
     </div>
-  )
+  );
 }

@@ -8,6 +8,7 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+
 // Prüfe, ob ein User eingeloggt ist
 supabase.auth.getUser().then(({ data, error }) => {
   console.log('Aktueller Benutzer:', data?.user || 'Kein Benutzer eingeloggt');

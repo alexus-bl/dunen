@@ -12,19 +12,9 @@ import GroupOverview from './components/Group/GroupOverview';
 import { supabase } from './supabaseClient';
 import ProfileSettings from './components/Profile/ProfileSettings';
 import InvitationPage from './pages/InvitationPage';
+import { GroupProvider } from './context/GroupContext';
+import { RequireAuth, PublicOnly, RequireGroup } from './components/routing/guards';
 
-// ---------- Route Guards ----------
-function RequireAuth({ user, ready, children }) {
-  if (!ready) return null; // oder Loading-Spinner
-  if (!user) return <Navigate to="/" replace />;
-  return children;
-}
-
-function PublicOnly({ user, ready, children }) {
-  if (!ready) return null;
-  if (user) return <Navigate to="/dashboard" replace />;
-  return children;
-}
 
 // ---------- Layout (Navbar/Sidebar je nach Route) ----------
 function AppLayout({ children }) {
@@ -58,7 +48,7 @@ export default function App() {
   const [profileChecked, setProfileChecked] = useState(false);
 
   useEffect(() => {
-    let subscription;
+    let sub;
 
     const initAuth = async () => {
       // 1) aktuelle Session laden
@@ -94,90 +84,96 @@ export default function App() {
 
       setProfileChecked(true);
 
-      // 3) Auth-Änderungen (Login/Logout/OAuth-Callback) beobachten
-      subscription = supabase.auth.onAuthStateChange((_event, newSession) => {
-        setUser(newSession?.user ?? null);
+      sub = supabase.auth.onAuthStateChange((_e, s) => {
+        setUser(s?.user ?? null);
       }).data.subscription;
     };
-
     initAuth();
-
-    return () => {
-      if (subscription) subscription.unsubscribe();
-    };
+    return () => sub?.unsubscribe();
   }, []);
 
   return (
     <BrowserRouter>
-      <AppLayout>
-        <Routes>
-          {/* Login (nur für nicht eingeloggte Nutzer) */}
-          <Route
-            path="/"
-            element={
-              <PublicOnly user={user} ready={profileChecked}>
-                <Login />
-              </PublicOnly>
-            }
-          />
+      <GroupProvider user={user}>
+        <AppLayout>
+          <Routes>
+            {/* Login nur für nicht eingeloggte */}
+            <Route
+              path="/"
+              element={
+                <PublicOnly user={user} ready={profileChecked}>
+                  <Login />
+                </PublicOnly>
+              }
+            />
 
-          {/* Einladungsseite – ggf. public (Token-basiert) */}
-          <Route path="/invite/:id" element={<InvitationPage />} />
+            {/* Gruppenübersicht nach Login */}
+            <Route
+              path="/groups"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <GroupOverview />
+                </RequireAuth>
+              }
+            />
 
-          {/* Geschützte Routen */}
-          <Route
-            path="/dashboard"
-            element={
-              <RequireAuth user={user} ready={profileChecked}>
-                <Dashboard />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/groups"
-            element={
-              <RequireAuth user={user} ready={profileChecked}>
-                <GroupOverview />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/add-match"
-            element={
-              <RequireAuth user={user} ready={profileChecked}>
-                <AddMatch />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/matches"
-            element={
-              <RequireAuth user={user} ready={profileChecked}>
-                <Matches />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/edit-match/:matchId"
-            element={
-              <RequireAuth user={user} ready={profileChecked}>
-                <EditMatch />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/profile-settings"
-            element={
-              <RequireAuth user={user} ready={profileChecked}>
-                <ProfileSettings />
-              </RequireAuth>
-            }
-          />
+            {/* Ab hier ist zusätzlich eine gewählte Gruppe Pflicht */}
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <RequireGroup>
+                    <Dashboard />
+                  </RequireGroup>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/matches"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <RequireGroup>
+                    <Matches />
+                  </RequireGroup>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/add-match"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <RequireGroup>
+                    <AddMatch />
+                  </RequireGroup>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/edit-match/:matchId"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <RequireGroup>
+                    <EditMatch />
+                  </RequireGroup>
+                </RequireAuth>
+              }
+            />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AppLayout>
+            <Route
+              path="/profile-settings"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <ProfileSettings />
+                </RequireAuth>
+              }
+            />
+
+            {/* Einladung ggf. public lassen */}
+            <Route path="/invite/:id" element={<InvitationPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AppLayout>
+      </GroupProvider>
     </BrowserRouter>
   );
 }
