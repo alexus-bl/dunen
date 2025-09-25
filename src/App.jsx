@@ -27,7 +27,7 @@ function AppLayout({ children }) {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex flex-col md:flex-row min-h-[100dvh] w-full bg-gray-800 text-white">
+    <div className="flex flex-col md:flex-row min-h-screen w-full bg-gray-800">
       {showSidebar && (
         <Sidebar isOpen={isSidebarOpen} closeSidebar={() => setSidebarOpen(false)} />
       )}
@@ -35,7 +35,7 @@ function AppLayout({ children }) {
         {showNavbar && (
           <Navbar toggleSidebar={() => setSidebarOpen(prev => !prev)} />
         )}
-        <main className="flex-1 overflow-x-auto overflow-y-auto p-4 sm:p-6 md:p-8 bg-transparent">
+        <main className="flex-1 overflow-x-auto p-4 sm:p-6 md:p-8">
           {children}
         </main>
       </div>
