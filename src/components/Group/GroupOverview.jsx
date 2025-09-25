@@ -264,12 +264,25 @@ export default function GroupOverview() {
               
 
               {group.role === 'owner' && (
-                <button
-                  onClick={async (e) => { e.stopPropagation(); await deleteGroup(group); }}
-                  className="ml-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full flex items-center justify-center"
-                  title="Gruppe löschen"
-                >
-                  <Trash2 size={16} />
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Gruppe "${group.name}" wirklich löschen?`)) return;
+                      try {
+                        const { error } = await supabase.rpc('delete_group_cascade', { p_group_id: group.id });
+                        if (error) throw error;
+                        // UI aktualisieren
+                        setGroups(prev => prev.filter(g => g.id !== group.id));
+                        alert('Gruppe gelöscht.');
+                      } catch (e) {
+                        console.error('[GroupOverview] delete_group_cascade failed:', e);
+                        const msg = String(e.message || '');
+                        if (msg.includes('NOT_OWNER')) alert('Nur der Owner darf die Gruppe löschen.');
+                        else alert('Gruppe konnte nicht gelöscht werden.');
+                      }
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white px-1 py-0.5 rounded"
+                  >
+                                <Trash2 size={16} />
                 </button>
               )}
             </div>

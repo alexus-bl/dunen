@@ -113,24 +113,20 @@ export default function Matches() {
   const handleDeleteMatch = async (matchId) => {
     if (!isOwner) return;
     if (!confirm('Diese Partie wirklich löschen? Alle zugehörigen Ergebnisse werden entfernt.')) return;
-
+  
     setDeletingId(matchId);
     try {
-      // 1) Results löschen (falls kein ON DELETE CASCADE vorhanden)
-      const delRes = await supabase.from('results').delete().eq('match_id', matchId);
-      if (delRes.error && delRes.error.code !== 'PGRST116') { // PGRST116 = No rows found, ok
-        throw delRes.error;
-      }
-
-      // 2) Match löschen
-      const delMatch = await supabase.from('matches').delete().eq('id', matchId);
-      if (delMatch.error) throw delMatch.error;
-
-      // 3) Liste aktualisieren
+      const { error } = await supabase.rpc('delete_match_cascade', { p_match_id: matchId });
+      if (error) throw error;
+  
+      // lokal aus der Liste nehmen
       setMatches(prev => prev.filter(m => m.id !== matchId));
     } catch (e) {
       console.error('[Matches] delete failed:', e);
-      alert(e.message || 'Partie konnte nicht gelöscht werden.');
+      const msg = String(e.message || '');
+      if (msg.includes('NOT_OWNER')) alert('Nur der Owner darf Partien löschen.');
+      else if (msg.includes('MATCH_NOT_FOUND')) alert('Partie nicht gefunden.');
+      else alert('Partie konnte nicht gelöscht werden.');
     } finally {
       setDeletingId(null);
     }
