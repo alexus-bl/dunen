@@ -405,18 +405,19 @@ const leadersToShow = useMemo(
   return (
     <div className="container mx-auto px-6 py-8 bg-gray-100 rounded-3xl shadow-xl border-4 border-green-400">
       {/* Header mit Settings */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Trophy className="text-green-400 w-6 h-6" /> Dashboard
-        </h1>
-        <button
-          onClick={() => setShowPrefs(v => !v)}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm"
-          title="Layout anpassen"
-        >
-          <Settings2 className="w-4 h-4" /> Layout anpassen
-        </button>
-      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-2 sm:gap-0">
+  <h1 className="text-2xl font-bold flex items-center gap-2">
+    <Trophy className="text-green-400 w-6 h-6" /> Dashboard
+  </h1>
+  <button
+    onClick={() => setShowPrefs(v => !v)}
+    className="inline-flex items-center gap-2 px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm self-start sm:self-auto"
+    title="Layout anpassen"
+  >
+    <Settings2 className="w-4 h-4" /> Layout anpassen
+  </button>
+</div>
+
 
       {/* Lade-/Fehlerzustände ohne Hooks zu ändern */}
       {!isReady ? (
@@ -567,7 +568,7 @@ const leadersToShow = useMemo(
             </table>
           </div>
           {/* Mobile Cards */}
-          <div className="space-y-4 flex-wrap md:hidden">
+          <div className="space-y-4 flex-wrap mb-4 md:hidden">
             {playerStatsVisible.map(stat => (
               <div key={stat.player} className="p-5 bg-white rounded-xl shadow-lg">
                 <div className="text-xl font-semibold text-gray-800 mb-2">{stat.player}</div>
