@@ -31,6 +31,8 @@ export default function Dashboard() {
   const [groupName, setGroupName] = useState('');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const [showAllLeadersGlobal, setShowAllLeadersGlobal] = useState(false);
+
 
   const [me, setMe] = useState(null);                  // {id, username, favorite_color}
   const [members, setMembers] = useState([]);          // [{id, username, favorite_color}]
@@ -336,35 +338,50 @@ export default function Dashboard() {
     return { player: player.username, placements: placementPercentages };
   }), [displayPlayers, validResults]);
 
-  const leaderOccurrences = useMemo(() => {
-    const occ = {}; validResults.forEach(r => {
-      const n = r.leaders?.name; if (!n) return;
-      occ[n] = (occ[n] || 0) + 1;
-    }); return occ;
-  }, [validResults]);
+  // Globale Leader-Statistik (pro MATCH, nicht pro Result-Zeile)
+const leadersGlobalSorted = useMemo(() => {
+  // Nach match_id gruppieren
+  const byMatch = validResults.reduce((acc, r) => {
+    (acc[r.match_id] ||= []).push(r);
+    return acc;
+  }, {});
 
-  const leaderWins = useMemo(() => {
-    const wins = {}; validResults.forEach(r => {
-      const matchResults = validResults.filter(x => x.match_id === r.match_id);
-      const winner = getWinner(matchResults);
-      const wl = winner?.leaders?.name;
-      if (wl) wins[wl] = (wins[wl] || 0) + 1;
-    }); return wins;
-  }, [validResults]);
+  const occurrences = {}; // wie oft ein Leader in Matches benutzt wurde
+  const wins = {};        // wie oft ein Leader das Match gewonnen hat
 
-  const leaderStatsGlobal = useMemo(() =>
-    Object.entries(leaderOccurrences).map(([name, count]) => ({
-      name, count,
-      winrate: leaderWins[name] ? ((leaderWins[name] / count) * 100).toFixed(1) : '0.0'
-    }))
-  , [leaderOccurrences, leaderWins]);
+  Object.values(byMatch).forEach((rows) => {
+    // Alle Leadernamen in diesem Match (einmalig je Leader zählen)
+    const leadersInMatch = Array.from(new Set(rows.map(r => r.leaders?.name).filter(Boolean)));
+    leadersInMatch.forEach((name) => {
+      occurrences[name] = (occurrences[name] || 0) + 1;
+    });
 
-  const top7Leaders = useMemo(() =>
-    (leaderModeGlobal === 'mostUsed'
-      ? [...leaderStatsGlobal].sort((a, b) => b.count - a.count)
-      : [...leaderStatsGlobal].sort((a, b) => parseFloat(b.winrate) - parseFloat(a.winrate))
-    ).slice(0, 7)
-  , [leaderStatsGlobal, leaderModeGlobal]);
+    // Sieger einmal pro Match bestimmen
+    const winner = getWinner(rows);
+    const wl = winner?.leaders?.name;
+    if (wl) wins[wl] = (wins[wl] || 0) + 1;
+  });
+
+  const stats = Object.entries(occurrences).map(([name, count]) => ({
+    name,
+    count, // "Spiele"
+    winrate: wins[name] ? ((wins[name] / count) * 100).toFixed(1) : '0.0',
+  }));
+
+  // Sortiermodus: meistgespielt vs. beste Winrate
+  const sorted = (leaderModeGlobal === 'mostUsed')
+    ? [...stats].sort((a, b) => b.count - a.count)
+    : [...stats].sort((a, b) => parseFloat(b.winrate) - parseFloat(a.winrate));
+
+  return sorted;
+}, [validResults, leaderModeGlobal]);
+
+// Liste für die Tabelle (Top 7 oder alle)
+const leadersToShow = useMemo(
+  () => (showAllLeadersGlobal ? leadersGlobalSorted : leadersGlobalSorted.slice(0, 7)),
+  [leadersGlobalSorted, showAllLeadersGlobal]
+);
+
 
   // --------------- Helper für UI ---------------
 
@@ -482,36 +499,49 @@ export default function Dashboard() {
 
           {/* Top Leader (gruppenweit) */}
           <div className="bg-white flex-wrap rounded-xl shadow-lg p-6 mb-8 sm:flex-row sm:items-center sm:justify-between mt-10 mb-4 gap-2 overflow-x-auto">
-            <div className="flex flex-col sm:items-center justify-between">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Star className="text-yellow-400" /> Top 7 Leader (Gruppe)
-              </h2>
+          <div className="flex flex-col sm:items-center justify-between">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Star className="text-yellow-400" /> {showAllLeadersGlobal ? 'Alle Leader (Gruppe)' : 'Top 7 Leader (Gruppe)'}
+            </h2>
+            <div className="flex gap-2 mt-2">
               <button
                 onClick={() => setLeaderModeGlobal(leaderModeGlobal === 'mostUsed' ? 'bestWinrate' : 'mostUsed')}
                 className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded flex items-center gap-2 text-sm"
               >
-                {leaderModeGlobal === 'mostUsed' ? (<><Shuffle className="w-4 h-4" /> Nach Winrate anzeigen</>) : (<><Star className="w-4 h-4" /> Meistgespielt anzeigen</>)}
+                {leaderModeGlobal === 'mostUsed' ? (<><Shuffle className="w-4 h-4" /> Nach Winrate sortieren</>) : (<><Star className="w-4 h-4" /> Meistgespielt anzeigen</>)}
+              </button>
+              <button
+                onClick={() => setShowAllLeadersGlobal(v => !v)}
+                className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              >
+                {showAllLeadersGlobal ? 'Top 7 anzeigen' : 'Alle anzeigen'}
               </button>
             </div>
-            <table className="mt-4 w-full text-left">
-              <thead>
-                <tr className="bg-gray-800 text-white">
-                  <th className="p-2">Leader</th>
-                  <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Winrate'}</th>
-                  <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Winrate' : 'Spiele'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {top7Leaders.map(leader => (
-                  <tr key={leader.name} className="border-t">
-                    <td className="p-2 font-medium">{leader.name}</td>
-                    <td className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}</td>
-                    <td className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? `${leader.winrate}%` : leader.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
+                <table className="mt-4 w-full text-left">
+          <thead>
+            <tr className="bg-gray-800 text-white">
+              <th className="p-2">Leader</th>
+              <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Spiele' : 'Winrate'}</th>
+              <th className="p-2 text-center">{leaderModeGlobal === 'mostUsed' ? 'Winrate' : 'Spiele'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leadersToShow.map(leader => (
+              <tr key={leader.name} className="border-t">
+                <td className="p-2 font-medium">{leader.name}</td>
+                <td className="p-2 text-center">
+                  {leaderModeGlobal === 'mostUsed' ? leader.count : `${leader.winrate}%`}
+                </td>
+                <td className="p-2 text-center">
+                  {leaderModeGlobal === 'mostUsed' ? `${leader.winrate}%` : leader.count}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
 
           {/* Durchschnittliche Runden */}
           <RoundsBox results={validResults} />
