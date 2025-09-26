@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [showAllLeadersGlobal, setShowAllLeadersGlobal] = useState(false);
+  const [layoutPolicy, setLayoutPolicy] = useState('member_custom');
 
 
   const [me, setMe] = useState(null);                  // {id, username, favorite_color}
@@ -57,6 +58,16 @@ export default function Dashboard() {
       try { const last = localStorage.getItem('lastGroupId'); if (last) setGroupId(last); } catch {}
     }
   }, [groupId, setGroupId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!groupId) return;
+      const { data, error } = await supabase.from('groups').select('layout_policy').eq('id', groupId).maybeSingle();
+      if (!cancelled && !error) setLayoutPolicy(data?.layout_policy || 'member_custom');
+    })();
+    return () => { cancelled = true; };
+  }, [groupId]);
 
   // Gruppenname
   useEffect(() => {
@@ -100,6 +111,26 @@ export default function Dashboard() {
     })();
     return () => { cancelled = true; };
   }, [groupId]);
+
+  //ggf. Layout-Möglichkeit ausblenden durch Gruppen-Einstellung
+
+  // nachdem members & me geladen sind:
+useEffect(() => {
+  if (!groupId || !me?.id) return;
+
+  if (layoutPolicy === 'force_self') {
+    // nur ich sichtbar
+    setVisiblePlayerIds([me.id]);
+    // optional: Prefs-Panel automatisch schließen
+    setShowPrefs(false);
+  }
+  if (layoutPolicy === 'force_all') {
+    // alle Gruppenmitglieder sichtbar
+    const ids = (members || []).map(m => m.id);
+    if (ids.length > 0) setVisiblePlayerIds(ids);
+    setShowPrefs(false);
+  }
+}, [layoutPolicy, groupId, me?.id, members]);
 
   // Matches-Stats + Ergebnisse laden
   useEffect(() => {
@@ -409,13 +440,11 @@ const leadersToShow = useMemo(
   <h1 className="text-2xl font-bold flex items-center gap-2">
     <Trophy className="text-green-400 w-6 h-6" /> Dashboard
   </h1>
-  <button
-    onClick={() => setShowPrefs(v => !v)}
-    className="inline-flex items-center gap-2 px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm self-start sm:self-auto"
-    title="Layout anpassen"
-  >
+  {layoutPolicy === 'member_custom' && (
+  <button onClick={() => setShowPrefs(v => !v)} className="inline-flex items-center gap-2 px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm">
     <Settings2 className="w-4 h-4" /> Layout anpassen
   </button>
+)}
 </div>
 
 
@@ -472,16 +501,14 @@ const leadersToShow = useMemo(
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-                <div className="text-xs text-green-700">Gesamt‑Siegpunkte</div>
-                <div className="text-3xl font-extrabold text-green-700">{myTotals.score}</div>
-              </div>
-              <div className="p-4 rounded-lg bg-gray-50">
-                <div className="text-xs text-gray-500">Gespielte Partien</div>
-                <div className="text-2xl font-bold">{myGamesCount}</div>
-              </div>
-              
-              
+              <div className="p-4 rounded-lg bg-gray-50 ">
+                  <div className="text-xs text-gray-500">Gespielte Partien</div>
+                  <div className="text-5xl font-bold">{myGamesCount}</div>
+                </div>
+              <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+                  <div className="text-xs text-green-500">Gesamt‑Siegpunkte</div>
+                  <div className="text-5xl font-extrabold text-green-500">{myTotals.score}</div>
+                </div>
             </div>
           </div>
 
@@ -493,7 +520,7 @@ const leadersToShow = useMemo(
               .map(item=>(
               <div key={item.label} className="p-5 bg-white rounded-xl shadow-lg transform hover:scale-105 transition duration-300">
                 <div className="text-4xl font-bold text-green-500 mb-2">{item.value}</div>
-                <div className="text-gray-600">{item.label}</div>
+                <div className="text-xs text-gray-600">{item.label}</div>
               </div>
             ))}
           </div>

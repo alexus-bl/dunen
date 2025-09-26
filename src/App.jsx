@@ -9,6 +9,7 @@ import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import GroupOverview from './components/Group/GroupOverview';
+import GroupSettings from './components/Group/GroupSettings';
 import { supabase } from './supabaseClient';
 import ProfileSettings from './components/Profile/ProfileSettings';
 import InvitationPage from './pages/InvitationPage';
@@ -116,6 +117,7 @@ export default function App() {
                 </RequireAuth>
               }
             />
+            <Route path="/groups/:groupId/settings" element={<GroupSettings />} />
 
             {/* Ab hier ist zusätzlich eine gewählte Gruppe Pflicht */}
             <Route
