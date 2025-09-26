@@ -436,7 +436,7 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          
+
           {/* Persönliche Kopfzeile */}
           <div className="mb-6 bg-white rounded-xl shadow-lg p-5">
             <div className="flex items-center gap-3 mb-3">
@@ -445,7 +445,7 @@ export default function Dashboard() {
                 <User className="text-white w-5 h-5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm text-gray-500">Angemeldet als</span>
+                 {/*  <span className="text-sm text-gray-500">Angemeldet als</span>*/}
                 <span className="text-lg font-semibold">{me?.username ?? '–'}</span>
               </div>
               <div className="ml-auto inline-flex items-center gap-2 bg-blue-50 text-blue-800 px-3 py-1 rounded-full border border-blue-200">
