@@ -77,29 +77,38 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Initialen Auth-Status prüfen
     const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUser = session?.user ?? null;
-      
-      if (currentUser) {
-        await ensurePlayerProfile(currentUser);
+      try {
+        // 1. Session prüfen
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+  
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+  
+        // 2. Profil nur prüfen, wenn User da ist
+        if (currentUser) {
+          // Wir nutzen hier KEIN await, damit der App-Start nicht blockiert wird,
+          // falls die Datenbank-Anfrage mal länger dauert.
+          ensurePlayerProfile(currentUser);
+        }
+      } catch (err) {
+        console.error("Fehler beim Auth-Init:", err);
+      } finally {
+        // WICHTIG: Das muss IMMER ausgeführt werden, damit "Lade Profil..." verschwindet
+        setProfileChecked(true);
       }
-      
-      setUser(currentUser);
-      setProfileChecked(true); // Wichtig für die Guards!
     };
-
+  
     initAuth();
-
-    // Auf Auth-Änderungen reagieren (Login/Logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      if (currentUser) await ensurePlayerProfile(currentUser);
+      if (currentUser) ensurePlayerProfile(currentUser);
       setProfileChecked(true);
     });
-
+  
     return () => subscription.unsubscribe();
   }, [ensurePlayerProfile]);
 
