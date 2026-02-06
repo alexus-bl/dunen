@@ -1,61 +1,63 @@
 // App.jsx
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 
-// Pages & Components
+// Pages
 import Dashboard from './pages/Dashboard';
 import AddMatch from './pages/AddMatch';
 import Matches from './pages/Matches';
 import EditMatch from './pages/EditMatch';
+import Login from './pages/Login';
+import InvitationPage from './pages/InvitationPage';
+
+// Components
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
-import Login from './pages/Login';
 import GroupOverview from './components/Group/GroupOverview';
 import GroupSettings from './components/Group/GroupSettings';
 import ProfileSettings from './components/Profile/ProfileSettings';
-import InvitationPage from './pages/InvitationPage';
 
 // Context & Guards
 import { GroupProvider } from './context/GroupContext';
 import { RequireAuth, PublicOnly, RequireGroup } from './components/routing/guards';
 
-// ---------- LAYOUTS ----------
+// ---------- LAYOUT KOMPONENTE ----------
+// Diese Komponente regelt, wo Sidebar und Navbar erscheinen
+function AppLayout({ isSidebarOpen, setSidebarOpen }) {
+  const location = useLocation();
+  
+  // Definition, auf welchen Routen KEINE Sidebar/Navbar sein soll
+  const noNavRoutes = ['/'];
+  const noSidebarRoutes = ['/', '/groups', '/invite'];
+  
+  const showNavbar = !noNavRoutes.includes(location.pathname);
+  const showSidebar = !noSidebarRoutes.includes(location.pathname) && !location.pathname.startsWith('/invite/');
 
-// Layout für Seiten MIT Navigation (Dashboard, Matches etc.)
-function AuthenticatedLayout({ isSidebarOpen, setSidebarOpen }) {
   return (
     <div className="flex flex-col md:flex-row min-h-screen w-full bg-gray-800 text-white">
-      <Sidebar isOpen={isSidebarOpen} closeSidebar={() => setSidebarOpen(false)} />
+      {showSidebar && (
+        <Sidebar isOpen={isSidebarOpen} closeSidebar={() => setSidebarOpen(false)} />
+      )}
       <div className="flex flex-col flex-1 w-full">
-        <Navbar toggleSidebar={() => setSidebarOpen(prev => !prev)} />
+        {showNavbar && (
+          <Navbar toggleSidebar={() => setSidebarOpen(prev => !prev)} />
+        )}
         <main className="flex-1 overflow-x-auto p-4 sm:p-6 md:p-8">
-          <Outlet /> {/* Hier werden die Kind-Komponenten gerendert */}
+          <Outlet /> {/* Hier werden die jeweiligen Pages gerendert */}
         </main>
       </div>
     </div>
   );
 }
 
-// Layout für einfache Seiten (Login, Einladung)
-function SimpleLayout() {
-  return (
-    <div className="min-h-screen w-full bg-gray-800 flex flex-col">
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
-    </div>
-  );
-}
-
-// ---------- MAIN APP COMPONENT ----------
-
+// ---------- HAUPT APP KOMPONENTE ----------
 export default function App() {
   const [user, setUser] = useState(null);
   const [profileChecked, setProfileChecked] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
-  // Hilfsfunktion zum Sicherstellen des Spieler-Profils
+  // Hilfsfunktion: Spieler-Profil in DB sicherstellen (Upsert verhindert Fehler)
   const ensurePlayerProfile = useCallback(async (currentUser) => {
     if (!currentUser || !currentUser.confirmed_at) return;
 
@@ -64,7 +66,7 @@ export default function App() {
       currentUser.email?.split('@')[0] ||
       `user_${currentUser.id.slice(0, 6)}`;
 
-    const { error } = await supabase.from('players').upsert(
+    await supabase.from('players').upsert(
       {
         user_id: currentUser.id,
         email: currentUser.email,
@@ -72,11 +74,10 @@ export default function App() {
       },
       { onConflict: 'user_id' }
     );
-
-    if (error) console.error('Fehler beim Profil-Sync:', error.message);
   }, []);
 
   useEffect(() => {
+    // Initialen Auth-Status prüfen
     const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const currentUser = session?.user ?? null;
@@ -86,32 +87,41 @@ export default function App() {
       }
       
       setUser(currentUser);
-      setProfileChecked(true);
+      setProfileChecked(true); // Wichtig für die Guards!
     };
 
     initAuth();
 
+    // Auf Auth-Änderungen reagieren (Login/Logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) await ensurePlayerProfile(currentUser);
+      setProfileChecked(true);
     });
 
     return () => subscription.unsubscribe();
   }, [ensurePlayerProfile]);
 
+  // Falls Supabase noch arbeitet, zeigen wir einen Ladebildschirm
   if (!profileChecked) {
-    return <div className="min-h-screen bg-gray-800 flex items-center justify-center text-white">Lade Profil...</div>;
+    return (
+      <div className="min-h-screen bg-gray-800 flex items-center justify-center text-white font-medium">
+        Lade Profil...
+      </div>
+    );
   }
 
   return (
     <BrowserRouter>
-      {/* GroupProvider stellt sicher, dass alle Unterkomponenten Zugriff auf Gruppeneinstellungen haben */}
+      {/* GroupProvider muss innerhalb von BrowserRouter sein, damit er Navigieren kann */}
       <GroupProvider user={user}>
         <Routes>
           
-          {/* ÖFFENTLICHE ROUTEN */}
-          <Route element={<SimpleLayout />}>
+          {/* Layout Wrapper für die gesamte App */}
+          <Route element={<AppLayout isSidebarOpen={isSidebarOpen} setSidebarOpen={setSidebarOpen} />}>
+            
+            {/* 1. ÖFFENTLICHE ROUTEN */}
             <Route
               path="/"
               element={
@@ -121,28 +131,75 @@ export default function App() {
               }
             />
             <Route path="/invite/:id" element={<InvitationPage />} />
-          </Route>
 
-          {/* GESCHÜTZTE ROUTEN (Auth erforderlich) */}
-          <Route
-            element={
-              <RequireAuth user={user} ready={profileChecked}>
-                <AuthenticatedLayout isSidebarOpen={isSidebarOpen} setSidebarOpen={setSidebarOpen} />
-              </RequireAuth>
-            }
-          >
-            {/* Nur Auth nötig */}
-            <Route path="/groups" element={<GroupOverview />} />
-            <Route path="/profile-settings" element={<ProfileSettings />} />
-            <Route path="/groups/:groupId/settings" element={<GroupSettings />} />
+            {/* 2. AUTH ERFORDERLICH (Keine Gruppe nötig) */}
+            <Route
+              path="/groups"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <GroupOverview />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/profile-settings"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <ProfileSettings />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/groups/:groupId/settings"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <GroupSettings />
+                </RequireAuth>
+              }
+            />
 
-            {/* Auth + Gruppe gewählt nötig */}
-            <Route element={<RequireGroup />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/matches" element={<Matches />} />
-              <Route path="/add-match" element={<AddMatch />} />
-              <Route path="/edit-match/:matchId" element={<EditMatch />} />
-            </Route>
+            {/* 3. AUTH + GRUPPE ERFORDERLICH */}
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <RequireGroup>
+                    <Dashboard />
+                  </RequireGroup>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/matches"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <RequireGroup>
+                    <Matches />
+                  </RequireGroup>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/add-match"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <RequireGroup>
+                    <AddMatch />
+                  </RequireGroup>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/edit-match/:matchId"
+              element={
+                <RequireAuth user={user} ready={profileChecked}>
+                  <RequireGroup>
+                    <EditMatch />
+                  </RequireGroup>
+                </RequireAuth>
+              }
+            />
+
           </Route>
 
           {/* Fallback */}
