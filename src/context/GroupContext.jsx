@@ -5,18 +5,41 @@ import { supabase } from '../supabaseClient';
 const GroupContext = createContext(null);
 
 export function GroupProvider({ user, children }) {
-  // Wir initialisieren die ID sofort aus dem localStorage, um Redirect-Glitches zu vermeiden
-  const [groupId, setGroupId] = useState(() => localStorage.getItem('lastGroupId'));
-  const [activeGroup, setActiveGroup] = useState(null); // Speichert Name, Policy, etc.
-  const [loading, setLoading] = useState(false);
+  // 1. Initialisierung aus dem Speicher
+  const [groupId, setGroupIdState] = useState(() => {
+    try {
+      return localStorage.getItem('lastGroupId') || null;
+    } catch {
+      return null;
+    }
+  });
 
-  // Funktion zum Laden/Aktualisieren der Gruppendaten (Policy, Name etc.)
-  const refreshGroupData = useCallback(async (idToFetch = groupId) => {
+  const [activeGroup, setActiveGroup] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // WICHTIG: Diese Funktion wird aufgerufen, wenn man in der Übersicht eine Gruppe anklickt
+  const setGroupId = useCallback((id) => {
+    if (id) {
+      setLoading(true); // SOFORT auf true setzen, damit der Guard wartet!
+      localStorage.setItem('lastGroupId', id);
+    } else {
+      localStorage.removeItem('lastGroupId');
+      setLoading(false);
+    }
+    setGroupIdState(id);
+  }, []);
+
+  // Funktion zum Laden der echten Gruppendaten aus der DB
+  const refreshGroupData = useCallback(async (idToFetch) => {
     if (!idToFetch || !user) {
       setActiveGroup(null);
+      setLoading(false);
       return;
     }
 
+    // Wir stellen sicher, dass loading aktiv ist
+    setLoading(true); 
+    
     try {
       const { data, error } = await supabase
         .from('groups')
@@ -25,39 +48,39 @@ export function GroupProvider({ user, children }) {
         .maybeSingle();
 
       if (error) throw error;
-      setActiveGroup(data);
+
+      if (data) {
+        setActiveGroup(data);
+      } else {
+        // Gruppe existiert nicht (mehr)
+        setActiveGroup(null);
+        setGroupIdState(null);
+        localStorage.removeItem('lastGroupId');
+      }
     } catch (err) {
-      console.error('[GroupContext] Fehler beim Laden der Gruppendaten:', err.message);
-    }
-  }, [groupId, user]);
-
-  // Effekt 1: Wenn sich die groupId ändert, Daten laden und im localStorage speichern
-  useEffect(() => {
-    if (groupId) {
-      localStorage.setItem('lastGroupId', groupId);
-      setLoading(true);
-      refreshGroupData(groupId).finally(() => setLoading(false));
-    } else {
-      localStorage.removeItem('lastGroupId');
+      console.error('[GroupContext] Fehler beim Laden:', err.message);
       setActiveGroup(null);
-    }
-  }, [groupId, refreshGroupData]);
-
-  // Effekt 2: Wenn der User ausloggt, alles zurücksetzen
-  useEffect(() => {
-    if (!user) {
-      setGroupId(null);
-      setActiveGroup(null);
-      localStorage.removeItem('lastGroupId');
+    } finally {
+      // Erst wenn die DB geantwortet hat, geben wir die App frei
+      setLoading(false);
     }
   }, [user]);
 
-  // Der Value enthält nun alles, was die App braucht
+  // Effekt: Wenn die ID sich ändert (durch Klick oder Initialisierung) -> Daten laden
+  useEffect(() => {
+    if (user && groupId) {
+      refreshGroupData(groupId);
+    } else if (user && !groupId) {
+      // Wenn eingeloggt, aber keine Gruppe gewählt -> wir sind fertig mit "Laden"
+      setLoading(false); 
+    }
+  }, [groupId, user, refreshGroupData]);
+
   const value = {
     groupId,
     setGroupId,
-    activeGroup,      // Hier steckt die layout_policy drin!
-    refreshGroupData, // Erlaubt GroupSettings, ein Update zu erzwingen
+    activeGroup,
+    refreshGroupData: () => refreshGroupData(groupId),
     loading
   };
 
@@ -70,8 +93,6 @@ export function GroupProvider({ user, children }) {
 
 export function useGroup() {
   const context = useContext(GroupContext);
-  if (!context) {
-    throw new Error('useGroup muss innerhalb eines GroupProviders verwendet werden');
-  }
+  if (!context) throw new Error('useGroup muss im Provider liegen');
   return context;
 }

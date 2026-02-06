@@ -1,4 +1,4 @@
-// App.jsx
+// src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
@@ -23,15 +23,15 @@ import { GroupProvider } from './context/GroupContext';
 import { RequireAuth, PublicOnly, RequireGroup } from './components/routing/guards';
 
 // ---------- LAYOUT KOMPONENTE ----------
-// Diese Komponente regelt, wo Sidebar und Navbar erscheinen
 function AppLayout({ isSidebarOpen, setSidebarOpen }) {
   const location = useLocation();
   
-  // Definition, auf welchen Routen KEINE Sidebar/Navbar sein soll
+  // Pfade ohne Navbar/Sidebar
   const noNavRoutes = ['/'];
-  const noSidebarRoutes = ['/', '/groups', '/invite'];
+  const noSidebarRoutes = ['/', '/groups', '/profile-settings']; 
   
   const showNavbar = !noNavRoutes.includes(location.pathname);
+  // Sidebar ausblenden auf noSidebar-Routen oder Einladungs-Links
   const showSidebar = !noSidebarRoutes.includes(location.pathname) && !location.pathname.startsWith('/invite/');
 
   return (
@@ -44,7 +44,7 @@ function AppLayout({ isSidebarOpen, setSidebarOpen }) {
           <Navbar toggleSidebar={() => setSidebarOpen(prev => !prev)} />
         )}
         <main className="flex-1 overflow-x-auto p-4 sm:p-6 md:p-8">
-          <Outlet /> {/* Hier werden die jeweiligen Pages gerendert */}
+          <Outlet />
         </main>
       </div>
     </div>
@@ -57,80 +57,79 @@ export default function App() {
   const [profileChecked, setProfileChecked] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
-  // Hilfsfunktion: Spieler-Profil in DB sicherstellen (Upsert verhindert Fehler)
+  // Backup-Funktion: Stellt sicher, dass ein Spieler-Profil existiert
+  // (Der Datenbank-Trigger erledigt das meistens schon von selbst)
   const ensurePlayerProfile = useCallback(async (currentUser) => {
-    if (!currentUser || !currentUser.confirmed_at) return;
-
-    const username =
-      currentUser.user_metadata?.username ||
-      currentUser.email?.split('@')[0] ||
-      `user_${currentUser.id.slice(0, 6)}`;
-
-    await supabase.from('players').upsert(
-      {
+    if (!currentUser) return;
+    try {
+      const username = currentUser.user_metadata?.username || currentUser.email?.split('@')[0];
+      
+      // Wir nutzen upsert. Dank des UNIQUE-Constraint in der DB 
+      // wird hier kein Fehler mehr (400) geworfen.
+      await supabase.from('players').upsert({
         user_id: currentUser.id,
         email: currentUser.email,
-        username,
-      },
-      { onConflict: 'user_id' }
-    );
+        username: username,
+      }, { onConflict: 'user_id' });
+    } catch (e) {
+      console.error("Fehler beim Profil-Check:", e.message);
+    }
   }, []);
 
   useEffect(() => {
+    // 1. Initial Auth Check
     const initAuth = async () => {
       try {
-        // 1. Session prüfen
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-  
+        const { data: { session } } = await supabase.auth.getSession();
         const currentUser = session?.user ?? null;
         setUser(currentUser);
-  
-        // 2. Profil nur prüfen, wenn User da ist
         if (currentUser) {
-          // Wir nutzen hier KEIN await, damit der App-Start nicht blockiert wird,
-          // falls die Datenbank-Anfrage mal länger dauert.
-          ensurePlayerProfile(currentUser);
+          await ensurePlayerProfile(currentUser);
         }
       } catch (err) {
-        console.error("Fehler beim Auth-Init:", err);
+        console.error("Auth-Fehler:", err);
       } finally {
-        // WICHTIG: Das muss IMMER ausgeführt werden, damit "Lade Profil..." verschwindet
+        // Dieser Call muss IMMER kommen, damit der Lade-Screen verschwindet
         setProfileChecked(true);
       }
     };
-  
+
     initAuth();
-  
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    // 2. Auth State Listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      if (currentUser) ensurePlayerProfile(currentUser);
+      if (currentUser) {
+        await ensurePlayerProfile(currentUser);
+      }
       setProfileChecked(true);
     });
-  
+
     return () => subscription.unsubscribe();
   }, [ensurePlayerProfile]);
 
-  // Falls Supabase noch arbeitet, zeigen wir einen Ladebildschirm
+  // WARTESCREEN (Verhindert fehlerhafte Redirects der Guards)
   if (!profileChecked) {
     return (
-      <div className="min-h-screen bg-gray-800 flex items-center justify-center text-white font-medium">
-        Lade Profil...
+      <div className="min-h-screen bg-gray-800 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-white font-medium animate-pulse">Lade Profil...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <BrowserRouter>
-      {/* GroupProvider muss innerhalb von BrowserRouter sein, damit er Navigieren kann */}
       <GroupProvider user={user}>
         <Routes>
           
-          {/* Layout Wrapper für die gesamte App */}
+          {/* Haupt-Layout Wrapper */}
           <Route element={<AppLayout isSidebarOpen={isSidebarOpen} setSidebarOpen={setSidebarOpen} />}>
             
-            {/* 1. ÖFFENTLICHE ROUTEN */}
+            {/* --- ÖFFENTLICHE SEITEN --- */}
             <Route
               path="/"
               element={
@@ -141,7 +140,7 @@ export default function App() {
             />
             <Route path="/invite/:id" element={<InvitationPage />} />
 
-            {/* 2. AUTH ERFORDERLICH (Keine Gruppe nötig) */}
+            {/* --- NUR EINGELOGGTE USER --- */}
             <Route
               path="/groups"
               element={
@@ -167,7 +166,7 @@ export default function App() {
               }
             />
 
-            {/* 3. AUTH + GRUPPE ERFORDERLICH */}
+            {/* --- USER MIT GEWÄHLTER GRUPPE --- */}
             <Route
               path="/dashboard"
               element={
@@ -211,7 +210,7 @@ export default function App() {
 
           </Route>
 
-          {/* Fallback */}
+          {/* Fallback bei unbekannten URLs */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </GroupProvider>
